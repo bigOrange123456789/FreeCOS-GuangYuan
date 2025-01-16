@@ -6,6 +6,9 @@ import math
 from PIL import Image
 #tempNumpyArray=np.load("DRIVE_instensity.npy")
 #score = tempNumpyArray.tolist()
+from PIL import EpsImagePlugin
+
+EpsImagePlugin.gs_windows_binary = r'C:\Program Files\gs\gs10.04.0\bin\gswin64c'
 
 def draw_background(a_turtle):
     """ Draw a background rectangle. """
@@ -170,7 +173,7 @@ path = "[+F-F][-F]"
 print(path)
 
 
-Num_image = 150
+Num_image = 25
 Start_theta = (-0,0)
 Start_theta_2 = (0,0)
 
