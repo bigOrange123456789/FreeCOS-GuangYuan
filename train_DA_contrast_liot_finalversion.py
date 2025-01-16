@@ -410,3 +410,10 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+'''
+2. 训练脚本
+CUDA_VISIBLE_DEVICES=0 python train_DA_contrast_liot_finalversion.py 
+#(CUDA_VISIBLE_DEVICES=0 python train_DA_contrast_liot_DRIVE_finalversion.py for DRIVE)
+'''
