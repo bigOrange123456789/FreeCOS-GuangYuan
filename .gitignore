@@ -1,13 +1,23 @@
 # 忽略/.cache/目录及其下的所有文件
+/__pycache__/
+/*/__pycache__/
 /*/__pycache__/
 /*/*/__pycache__/
 /*/*/*/__pycache__/
 
-/.idea/
 
+/.idea/
+/logs/
 # 图片数据集
 /Data/XCAD/fake_very_smalltheta/
 /Data/XCAD/train/fake_grayvessel_width/
 /Data/XCAD/train/fake_gtvessel_width/
 /Data/XCAD/train/img/
 /Data/XCAD/test/
+/Data/XCAD/work_vessel.eps
+
+
+
+
+
+
