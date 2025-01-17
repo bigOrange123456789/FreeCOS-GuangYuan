@@ -71,7 +71,7 @@ class DatasetXCAD_aug(data.Dataset):
         self.supervised = supervised
 
         self.datapath = datapath
-        if self.supervised=='supervised':
+        if self.supervised=='supervised': # 如果有监督
             if self.split == 'train':
                 self.img_path = os.path.join(datapath, 'train','fake_grayvessel_width')
                 self.background_path = os.path.join(datapath,'train', 'img')

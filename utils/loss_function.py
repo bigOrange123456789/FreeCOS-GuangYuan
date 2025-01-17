@@ -9,7 +9,7 @@ class DiceLoss(nn.Module):
         super(DiceLoss, self).__init__()
         self.epsilon = 1e-5
 
-    def forward(self, predict, target):
+    def forward(self, predict, target): #预测值、目标值
         assert predict.size() == target.size(), "the size of predict and target must be equal."
         num = predict.size(0)
 

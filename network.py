@@ -142,7 +142,7 @@ class SingleIternet(nn.Module):
                     m.dilation = (dilate, dilate)
                     m.padding = (dilate, dilate)
 
-class Single_contrast_UNet(nn.Module):
+class Single_contrast_UNet(nn.Module): # Single_contrast_UNet 单对比度UNet
     def __init__(self, n_channels,num_classes):
         super(Single_contrast_UNet, self).__init__()
         self.backbone = UNet_contrast(n_channels=n_channels, n_classes=num_classes)

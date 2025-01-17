@@ -269,64 +269,77 @@ def evaluate(epoch, Segment_model, predict_Discriminator_model, val_target_loade
 
 
 def main():
+    # os.getenv('debug'): None
     if os.getenv('debug') is not None:
         is_debug = os.environ['debug']
     else:
         is_debug = False
     parser = argparse.ArgumentParser()
-    os.environ['MASTER_PORT'] = '169711'
+    os.environ['MASTER_PORT'] = '169711' #“master_port”的意思是主端口
 
     args = parser.parse_args()
-    cudnn.benchmark = True
+    cudnn.benchmark = True #benchmark的意思是基准
     # set seed
     seed = config.seed  # 12345
-    torch.manual_seed(seed)
+    torch.manual_seed(seed) # manual_seed的意思是人工种子
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
     print("Begin Dataloader.....")
 
     CSDataset.initialize(datapath=config.datapath)
-    dataloader_supervised = CSDataset.build_dataloader(config.benchmark,  # XCAD
-                                                       config.batch_size,
-                                                       config.nworker,
+    print('config.datapath:',config.datapath)#"./Data/XCAD"
+
+    dataloader_supervised = CSDataset.build_dataloader(config.benchmark,  # XCAD_LIOT
+                                                       config.batch_size, # 4
+                                                       config.nworker,    # 8
                                                        'train',
-                                                       config.img_mode,
-                                                       config.img_size,
-                                                       'supervised')  # FDA sys
-    dataloader_unsupervised = CSDataset.build_dataloader(config.benchmark,  # XCAD
-                                                         config.batch_size,
-                                                         config.nworker,
+                                                       config.img_mode,   # crop
+                                                       config.img_size,   # 256
+                                                       'supervised')
+    dataloader_unsupervised = CSDataset.build_dataloader(config.benchmark,  # XCAD_LIOT
+                                                         config.batch_size, # 4
+                                                         config.nworker,    # 8
                                                          'train',
-                                                         config.img_mode,
-                                                         config.img_size,
+                                                         config.img_mode,   # crop
+                                                         config.img_size,   # 256
                                                          'unsupervised')
 
-    dataloader_val = CSDataset.build_dataloader(config.benchmark,
-                                                config.batch_size_val,
-                                                config.nworker,
+    dataloader_val = CSDataset.build_dataloader(config.benchmark,       # benchmark XCAD_LIOT
+                                                config.batch_size_val,  # batch_size_val 1
+                                                config.nworker,         # nworker 8
                                                 'val',
                                                 'same',
                                                 None,
                                                 'supervised')
     print("Dataloader.....")
-    criterion = DiceLoss()  # try both loss BCE and DICE
+    criterion = DiceLoss()  # try both loss BCE and DICE # 尝试损失BCE和DICE
+    # dice(x,y) = 1 - 2 * (x*y) / (x+y) # 相同为-1,不同为1
 
-    # define and init the model
-    # Single or not single
-    BatchNorm2d = nn.BatchNorm2d
-    Segment_model = Single_contrast_UNet(4, config.num_classes)
+    # define and init the model # 定义并初始化模型
+    # Single or not single # 单个或非单个
+    BatchNorm2d = nn.BatchNorm2d # BatchNorm2d: <class 'torch.nn.modules.batchnorm.BatchNorm2d'>
+    Segment_model = Single_contrast_UNet(4, config.num_classes) # config.num_classes=1
 
     init_weight(Segment_model.business_layer, nn.init.kaiming_normal_,
-                BatchNorm2d, config.bn_eps, config.bn_momentum,
+                # nn.init.kaiming_normal_: <function kaiming_normal_>
+                BatchNorm2d,
+                # BatchNorm2d: <class 'torch.nn.modules.batchnorm.BatchNorm2d'>
+                config.bn_eps,
+                # config.bn_eps: 1e-05
+                config.bn_momentum,
+                # config.bn_momentum: 0.1
                 mode='fan_in', nonlinearity='relu')
     # define the learning rate
-    base_lr = config.lr  # 0.04
-    base_lr_D = config.lr_D  # 0.04
+    base_lr = config.lr  # 0.04     # 学习率
+    base_lr_D = config.lr_D  # 0.04 # dropout?
 
     params_list_l = []
-    params_list_l = group_weight(params_list_l, Segment_model.backbone,
-                                 BatchNorm2d, base_lr)
-    # optimizer for segmentation_L
+    params_list_l = group_weight(
+        params_list_l, #一个list对象，内部的成员为tensor对象
+        Segment_model.backbone, # 分割网络的主干
+        BatchNorm2d,    # BatchNorm2d: <class 'torch.nn.modules.batchnorm.BatchNorm2d'>
+        base_lr)        # base_lr: 0.01
+    # optimizer for segmentation_L   # 分割优化器_L
     print("config.weight_decay", config.weight_decay)
     optimizer_l = torch.optim.SGD(params_list_l,
                                   lr=base_lr,
@@ -347,8 +360,9 @@ def main():
     lrD_policy = WarmUpPolyLR(base_lr_D, config.lr_power, total_iteration,
                               config.niters_per_epoch * config.warm_up_epoch)
 
-    average_posregion = torch.zeros((1, 128))
-    average_negregion = torch.zeros((1, 128))
+    average_posregion = torch.zeros((1, 128)) # average_posregion ：平均正区？
+    average_negregion = torch.zeros((1, 128)) # average_negregion ：平均负区？
+    # 有1个cuda 。torch.cuda.device_count()=1
     if torch.cuda.device_count() > 1:
         Segment_model = Segment_model.cuda()
         Segment_model = nn.DataParallel(Segment_model)
@@ -359,10 +373,10 @@ def main():
         # Logger.info('Use GPU Parallel.')
     elif torch.cuda.is_available():
         print("cuda_is available")
-        Segment_model = Segment_model.cuda()
+        Segment_model = Segment_model.cuda() # 分割模型
         average_posregion.cuda()
         average_negregion.cuda()
-        predict_Discriminator_model = predict_Discriminator_model.cuda()
+        predict_Discriminator_model = predict_Discriminator_model.cuda() # 预测判别模型，我猜这是判别器
     else:
         Segment_model = Segment_model
         predict_Discriminator_model = predict_Discriminator_model
@@ -407,13 +421,13 @@ def main():
         #     Logger.save_model_f1_S(Segment_model, epoch, val_mean_AUC, optimizer_l)
         #     Logger.save_model_f1_T(predict_Discriminator_model, epoch, val_mean_AUC, optimizer_D)
 
-
 if __name__ == '__main__':
     main()
 
-
 '''
     2. 训练脚本
-    CUDA_VISIBLE_DEVICES=0 python train_DA_contrast_liot_finalversion.py 
+    export PATH="~/anaconda3/bin:$PATH"
+    source activate FreeCOS
+    python train_DA_contrast_liot_finalversion.py 
     #(CUDA_VISIBLE_DEVICES=0 python train_DA_contrast_liot_DRIVE_finalversion.py for DRIVE)
 '''
