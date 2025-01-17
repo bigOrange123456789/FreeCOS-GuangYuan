@@ -1,3 +1,12 @@
 First, use the make_fakevessel.py to generate the curvilinear object images.
 Then, use the convert_gt.py convert the RGB curvilinear object images to gray curvilinear object images.
 Finally, use the convert_gt.py to generate the ground truth.
+
+首先，使用make_fakevessel.py生成曲线对象图像。
+->【fake_very_smalltheta】
+然后，使用convert_gt.py将RGB曲线对象图像转换为灰色曲线对象图像。
+【fake_very_smalltheta】->【train/fake_grayvessel_verysmalltheta】
+最后，使用convert_gt.py生成地面实况。
+【fake_very_smalltheta】->【train/fake_randomgrad_vesselgt】
+
+

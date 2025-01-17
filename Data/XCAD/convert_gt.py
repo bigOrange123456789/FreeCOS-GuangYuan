@@ -39,13 +39,13 @@ i = 0
 list_RGB= []
 for image_dir in files:
     print("image_dir",image_dir)
-    image =  Image.open(Img_dir+image_dir).convert("L")
+    image = Image.open(Img_dir+image_dir).convert("L")
     image_array = np.asarray(image).copy()
     print("image_array", image_array.shape)
     print("unique",np.unique(image_array))
 
-    image_array[image_array==255] = 0
-    image_array[image_array>0] = 255
+    image_array[image_array==255] = 0   # 背景位置颜色改为黑色
+    image_array[image_array>0] = 255    # 血管位置颜色改为白色
     #image_array[image_array==255] = 0
     #binary = replace_color_binary(image_array)
     save_path = Save_dir + image_dir
