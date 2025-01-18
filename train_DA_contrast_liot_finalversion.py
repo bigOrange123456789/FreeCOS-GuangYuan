@@ -289,13 +289,14 @@ def main():
     CSDataset.initialize(datapath=config.datapath)
     print('config.datapath:',config.datapath)#"./Data/XCAD"
 
-    dataloader_supervised = CSDataset.build_dataloader(config.benchmark,  # XCAD_LIOT
+    dataloader_supervised = CSDataset.build_dataloader(config.benchmark,  # XCAD_LIOT # benchmark的本译是基准
                                                        config.batch_size, # 4
                                                        config.nworker,    # 8
                                                        'train',
                                                        config.img_mode,   # crop
                                                        config.img_size,   # 256
                                                        'supervised')
+    # 有监督使用的数据是什么？gray中为血管的灰度图、gt中为标签。
     dataloader_unsupervised = CSDataset.build_dataloader(config.benchmark,  # XCAD_LIOT
                                                          config.batch_size, # 4
                                                          config.nworker,    # 8
@@ -303,14 +304,16 @@ def main():
                                                          config.img_mode,   # crop
                                                          config.img_size,   # 256
                                                          'unsupervised')
+    # 无监督使用的应该是img文件夹中的原始图片。
 
-    dataloader_val = CSDataset.build_dataloader(config.benchmark,       # benchmark XCAD_LIOT
-                                                config.batch_size_val,  # batch_size_val 1
-                                                config.nworker,         # nworker 8
+    dataloader_val = CSDataset.build_dataloader(config.benchmark,       # XCAD_LIOT
+                                                config.batch_size_val,  # 1
+                                                config.nworker,         # 8
                                                 'val',
                                                 'same',
                                                 None,
                                                 'supervised')
+    # 无监督使用的应该是img文件夹中的原始图片。
     print("Dataloader.....")
     criterion = DiceLoss()  # try both loss BCE and DICE # 尝试损失BCE和DICE
     # dice(x,y) = 1 - 2 * (x*y) / (x+y) # 相同为-1,不同为1

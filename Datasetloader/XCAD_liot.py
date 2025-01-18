@@ -63,51 +63,65 @@ class DatasetXCAD_aug(data.Dataset):
     def __init__(self, benchmark, datapath, split, img_mode, img_size,supervised):
         super(DatasetXCAD_aug, self).__init__()
         self.split = 'val' if split in ['val', 'test'] else 'train'
-        self.benchmark = benchmark
+        self.benchmark = benchmark # benchmark = XCAD_LIOT
         assert self.benchmark == 'XCAD_LIOT'
-        self.img_mode = img_mode
-        assert img_mode in ['crop', 'same', 'resize']
-        self.img_size = img_size   # int
-        self.supervised = supervised
+        self.img_mode = img_mode # 测试时为same,训练时为crop (译为裁减)
+        assert img_mode in ['crop', 'same', 'resize'] # 有三种图片模式：裁减、相似、放缩
+        self.img_size = img_size   # int # 训练时图片大小为256、测试时为None
+        self.supervised = supervised #训练集包括有监督和无监督两部分、测试集为有监督
 
-        self.datapath = datapath
-        if self.supervised=='supervised': # 如果有监督
-            if self.split == 'train':
-                self.img_path = os.path.join(datapath, 'train','fake_grayvessel_width')
-                self.background_path = os.path.join(datapath,'train', 'img')
-                self.ann_path = os.path.join(datapath, 'train','fake_gtvessel_width')
+        self.datapath = datapath # ./Data/XCAD
+        if self.supervised=='supervised':
+            if self.split == 'train': # 有监督的训练
+                self.img_path = os.path.join(datapath, 'train','fake_grayvessel_width')#./Data/XCAD/train/fake_grayvessel_width #合成血管
+                self.background_path = os.path.join(datapath,'train', 'img')           #./Data/XCAD/train/img                   #真实图片
+                self.ann_path = os.path.join(datapath, 'train','fake_gtvessel_width')  #./Data/XCAD/train/fake_gtvessel_width   #合成标签
 
-                self.img_metadata = self.load_metadata_supervised()  #train_fakevessel.txt
+                self.img_metadata        = self.load_metadata_supervised()  #train_fakevessel.txt
                 self.background_metadata = self.load_metadata_background()  #train_backvessel.txt
-            else:
-                self.img_path = os.path.join(datapath, 'test','img')
-                self.ann_path = os.path.join(datapath, 'test','gt')
+            else: # 有监督的测试
+                self.img_path = os.path.join(datapath, 'test','img')    #./Data/XCAD/test/img #真实数据
+                self.ann_path = os.path.join(datapath, 'test','gt')     #./Data/XCAD/test/gt  #人工标签
                 self.img_metadata = self.load_metadata_testsupervised() #test_img.txt
-        else:
-            self.img_path = os.path.join(datapath, 'train','img')
+        else: # 无监督的训练
+            self.img_path = os.path.join(datapath, 'train','img') #./Data/XCAD/train/img
             self.img_metadata = self.load_metadata_background()  #train_backvessel.txt
         self.norm_img = transforms.Compose([
-            transforms.ToTensor()
+            transforms.ToTensor()#将数据由HWC255格式 转换为CHW0～1的格式
         ])
+        '''
+        transforms.Compose([...])：
+            Compose是一个函数，它接受一个列表作为输入，这个列表包含了多个图像转换操作。
+            Compose的作用是将这些转换操作按顺序应用到图像上。
+        transforms.ToTensor()：
+            ToTensor是一个转换操作，它将PIL图像或者一个形状为HWC（高度、宽度、通道数）的NumPy ndarray（数据类型为uint8）
+            转换成形状为CHW的FloatTensor，
+            并且把数值范围从[0, 255]缩放到[0.0, 1.0]。
+            这个转换是图像预处理中非常常见的一步，因为它使得图像数据适合作为神经网络模型的输入。
+        self.norm_img = ...：
+            这行代码将Compose函数返回的转换组合（即包含ToTensor操作的组合）赋值给self.norm_img。
+            在这里，self.norm_img并不是直接存储图像数据，而是存储了一组转换操作。
+            这个组操作可以在后续的数据加载和预处理阶段被应用到图像数据上。
+        '''
         if self.img_mode == 'resize':
             self.resize = transforms.Resize([img_size, img_size], interpolation=Image.NEAREST)
         else:
             self.resize = None
 
     def __len__(self):
-        return len(self.img_metadata)
+        return len(self.img_metadata)#img_metadata中存储了所有文件的名称
 
     def __getitem__(self, index):
-        img_name = self.img_metadata[index]#get the name of fakevessel(train-supervised), img(test-supervised), img(train-unsupervised)
-        if self.supervised=='supervised' and self.split == 'train':
+        img_name = self.img_metadata[index] # get the name of fakevessel(train-supervised), img(test-supervised), img(train-unsupervised)
+        if self.supervised=='supervised' and self.split == 'train': #有监督的训练
             idx_background = np.random.randint(len(self.background_metadata))  # background(train-supervised)
-            background_name = self.background_metadata[idx_background]
-            img, anno_mask, org_img_size = self.load_frame_fakevessel_gaussian(img_name, background_name)
-        elif self.supervised=='supervised' and self.split != 'train':
-            img, anno_mask, org_img_size = self.load_frame_aff(img_name)
-        else:
-            img, org_img_size = self.load_frame_unsupervised(img_name)
-            anno_mask = None
+            background_name = self.background_metadata[idx_background] #随机抽取一张背景图(造影图)
+            img, anno_mask, org_img_size = self.load_frame_fakevessel_gaussian(img_name, background_name)#人工血管图、真实造影图
+        elif self.supervised=='supervised' and self.split != 'train': #有监督的验证
+            img, anno_mask, org_img_size = self.load_frame_aff(img_name) #返回：造影图、人工标签、尺寸
+        else: #无监督的训练
+            img, org_img_size = self.load_frame_unsupervised(img_name) #返回：造影图、尺寸
+            anno_mask = None # 无标签
 
         if self.split == 'train' and self.supervised=='supervised':
             img, anno_mask = self.augmentation_aff(img, anno_mask)
@@ -263,11 +277,14 @@ class DatasetXCAD_aug(data.Dataset):
         return img_FDA_Image, anno_mask, org_img_size
 
     def load_frame_fakevessel_gaussian(self,img_name,background_name):
-        img = self.read_img(img_name)
-        anno_mask = self.read_mask(img_name)
-        background_img = self.read_background(background_name)
+        img = self.read_img(img_name) # 读取人工血管图
+        anno_mask = self.read_mask(img_name) # 读取人工血管的标签图
+        background_img = self.read_background(background_name) #背景图(真实造影图)
+        print(type(background_img))
 
         background_array = np.array(background_img)
+        print(type(background_array))
+        # exit(0)
         im_src = np.asarray(img, np.float32)
         im_trg = np.asarray(background_array, np.float32)
         im_src = np.expand_dims(im_src,axis=2)
@@ -361,10 +378,10 @@ class DatasetXCAD_aug(data.Dataset):
 
         return img_FDA_Image, anno_mask, org_img_size
 
-    def load_frame_unsupervised(self, img_name):
-        img = self.read_img(img_name)
-        org_img_size = img.size
-        return img, org_img_size
+    def load_frame_unsupervised(self, img_name): # 加载一张真实的造影图，无监督的训练
+        img = self.read_img(img_name)   # 加载一张真实的造影图
+        org_img_size = img.size         # 造影图的尺寸
+        return img, org_img_size # 造影图，尺寸
 
     def load_frame_supervised(self, img_name, idx_background):
         img = self.read_img(img_name)
