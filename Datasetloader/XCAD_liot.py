@@ -279,28 +279,49 @@ class DatasetXCAD_aug(data.Dataset):
     def load_frame_fakevessel_gaussian(self,img_name,background_name):
         img = self.read_img(img_name) # 读取人工血管图
         anno_mask = self.read_mask(img_name) # 读取人工血管的标签图
-        background_img = self.read_background(background_name) #背景图(真实造影图)
-        print(type(background_img))
+        background_img = self.read_background(background_name) #背景图(真实造影图) # <PIL.Image.Image>
 
-        background_array = np.array(background_img)
-        print(type(background_array))
-        # exit(0)
-        im_src = np.asarray(img, np.float32)
-        im_trg = np.asarray(background_array, np.float32)
-        im_src = np.expand_dims(im_src,axis=2)
-        im_trg = np.expand_dims(im_trg, axis=2)
+        # 1.FDA：在人工血管图中添加背景
+        background_array = np.array(background_img) # <numpy.ndarray> #将图片由'PIL.Image.Image'格式转化为numpy格式
+        im_src = np.asarray(img, np.float32) # <PIL.Image.Image> -- <numpy.ndarray> #转换为NumPy，并且指定类型
 
-        im_src = im_src.transpose((2, 0, 1))
-        im_trg = im_trg.transpose((2, 0, 1))
-        src_in_trg = FDA_source_to_target_np(im_src, im_trg, L=0.3)
-        img_FDA = np.clip(src_in_trg, 0, 255.)
-        img_FDA = np.squeeze(img_FDA,axis = 0)
+        im_trg = np.asarray(background_array, np.float32) #转化前后类型都是<numpy.ndarray> (512, 512)
+        im_src = np.expand_dims(im_src, axis=2) # (512, 512) -> (512, 512, 1) #增加一个维度
+        im_trg = np.expand_dims(im_trg, axis=2) # (512, 512) -> (512, 512, 1)
+
+        im_src = im_src.transpose((2, 0, 1)) #  (512, 512, 1) -> (1, 512, 512)
+        im_trg = im_trg.transpose((2, 0, 1)) # 通过转置操作，改变维度顺序
+        src_in_trg = FDA_source_to_target_np(im_src, im_trg, L=0.3) #源图片是人工血管、目标图片是背景图
+        img_FDA = np.clip(src_in_trg, 0, 255.)#应该是限制像素的最小值为0、最大值为255
+        img_FDA = np.squeeze(img_FDA,axis = 0) # (1, 512, 512) -> (512, 512)
+        # 2.高斯模糊
         img_FDA_guassian = cv2.GaussianBlur(img_FDA, (13, 13), 0)
+        '''
+        进行高斯模糊处理。 (注意这里有一个拼写错误，“guassian”应该是“gaussian”)
+            img_FDA：原始图像。
+            (13, 13)：高斯核的大小。在这个例子中，核的大小是13x13像素。核的大小会影响模糊的程度；较大的核会产生更强烈的模糊效果。
+            0：表示σ值在X和Y方向上的标准差。当这个参数为0时，它会根据核的大小自动计算。标准差决定了高斯函数的宽度，从而影响模糊的程度。
+        '''
+        # 3.添加点噪声
         noise_map = np.random.uniform(-5,5,img_FDA_guassian.shape)
+        '''
+        生成一个与img_FDA_guassian图像形状相同的噪声，其中的元素值在-5到5之间均匀分布:
+            [-5,5)：抽取样本的范围。
+            img_FDA_guassian.shape：输出数组的形状。
+        '''
         img_FDA_guassian = img_FDA_guassian + noise_map
         img_FDA_guassian = np.clip(img_FDA_guassian, 0, 255.)
 
         img_FDA_Image = Image.fromarray((img_FDA_guassian).astype('uint8')).convert('L')
+        '''
+        img_FDA_guassian.astype('uint8')：转换为无符号8位整型（uint8）。
+            这是必要的，因为PIL库处理图像时通常期望图像数据是以这种格式存储的。
+            以确保所有的值都在0到255的范围内（uint8能表示的最小值和最大值）。
+        Image.fromarray(...)：这一步使用PIL库的Image.fromarray函数将NumPy数组转换为PIL图像对象。
+            这个函数接受一个NumPy数组作为输入，并返回一个PIL图像对象，该对象可以用于进一步的图像处理或保存。
+        .convert('L')：这一步将PIL图像对象转换为灰度图像。
+            如果原始图像已经是灰度图像，这一步则不会改变图像的内容。
+        '''
 
         org_img_size = img.size
 
