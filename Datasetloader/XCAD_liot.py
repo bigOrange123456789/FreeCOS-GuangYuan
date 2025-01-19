@@ -116,51 +116,55 @@ class DatasetXCAD_aug(data.Dataset):
         if self.supervised=='supervised' and self.split == 'train': #有监督的训练
             idx_background = np.random.randint(len(self.background_metadata))  # background(train-supervised)
             background_name = self.background_metadata[idx_background] #随机抽取一张背景图(造影图)
-            img, anno_mask, org_img_size = self.load_frame_fakevessel_gaussian(img_name, background_name)#人工血管图、真实造影图
+            img, anno_mask, org_img_size = self.load_frame_fakevessel_gaussian(img_name, background_name)#(合成图像、合成标签)<-(合成血管图、真实造影图)
         elif self.supervised=='supervised' and self.split != 'train': #有监督的验证
             img, anno_mask, org_img_size = self.load_frame_aff(img_name) #返回：造影图、人工标签、尺寸
         else: #无监督的训练
             img, org_img_size = self.load_frame_unsupervised(img_name) #返回：造影图、尺寸
             anno_mask = None # 无标签
 
-        if self.split == 'train' and self.supervised=='supervised':
-            img, anno_mask = self.augmentation_aff(img, anno_mask)
-        elif self.split == 'train' and self.supervised!='supervised':
-            img, anno_mask = self.augmentation_unsupervised(img,anno_mask)
+        if self.split == 'train' and self.supervised=='supervised': #有监督的训练
+            img, anno_mask = self.augmentation_aff(img, anno_mask) #翻转、旋转、调色
+        elif self.split == 'train' and self.supervised!='supervised': #无监督的训练
+            img, anno_mask = self.augmentation_unsupervised(img,anno_mask) #翻转、旋转、调色
 
         if self.img_mode == 'resize' and self.split == 'train' :
             img = self.resize(img)
             if anno_mask!=None:
                 anno_mask = self.resize(anno_mask)
-        elif self.img_mode == 'crop' and self.split == 'train':
+        elif self.img_mode == 'crop' and self.split == 'train': #只用训练的时候需要裁减、因为训练前的旋转操作会放大图片
             i, j, h, w = self.get_params(img, (self.img_size, self.img_size))
             img = F.crop(img, i, j, h, w)
             if anno_mask!=None:
                 anno_mask = F.crop(anno_mask, i, j, h, w)
         else:
             pass
-        img_gray = self.norm_img(np.array(img))
+        img_gray = self.norm_img(np.array(img))#由前文知norm_img作用为: 将数据由HWC255 转换为CHW0～1
+        # img:      (256, 256) <PIL.Image.Image>
+        # img_gray: [1, 256, 256] <torch.Tensor>
+        # [1, 256, 256] <- (256, 256) # Tensor <- ndarray
 
         #LIOT part
-        img = trans_liot(img)
-        img = img.transpose((1, 2, 0))
-        img = self.norm_img(img)
-        #img = img_gray
+        img = trans_liot(img) # (4,256,256) <- (256,256) #类似于梯度的计算
+        img = img.transpose((1, 2, 0)) # (256,256,4) <- (4,256,256)
+        img = self.norm_img(img) # [4,256,256] <- (256,256,4)
+        # [4, 256, 256] <- (256, 256, 4) # Tensor <- ndarray
+        # img = img_gray
 
-        img = (img-torch.mean(img))/torch.std(img)
-        if self.supervised=='supervised':
-            #print("gt_unique", torch.unique(anno_mask))
+        img = (img-torch.mean(img))/torch.std(img) # (x-均值)/标准差
+        if self.supervised=='supervised': #有监督
+            # print("gt_unique", torch.unique(anno_mask))
             batch = {
-                'img_name': img_name,
-                'img': img,
-                'anno_mask': anno_mask,
-                'gray': img_gray
+                'img_name': img_name,    #图片名称
+                'img': img,              #(梯度)图片数据
+                'anno_mask': anno_mask,  #标签数据
+                'gray': img_gray         #(原始)图像数据
             }
             return batch
-        else:
+        else: #无监督
             batch = {
-                'img_name': img_name,
-                'img': img
+                'img_name': img_name, # 图片名称
+                'img': img            # 图片数据
             }
             return batch
 
@@ -193,45 +197,75 @@ class DatasetXCAD_aug(data.Dataset):
 
         return img, anno_mask, anno_boundary, ignore_mask
 
-    def augmentation_aff(self, img, anno_mask):
-        p = np.random.choice([0, 1])
-        transform_hflip = transforms.RandomHorizontalFlip(p)
+    def augmentation_aff(self, img, anno_mask): #有监督数据的数据增强
+        #1.翻转
+        p = np.random.choice([0, 1]) #随机选择一个元素（0或1）
+        transform_hflip = transforms.RandomHorizontalFlip(p) #定义一个水平翻转操作，p 是这个转换操作被应用的概率。
         img = transform_hflip(img)
-        anno_mask = transform_hflip(anno_mask)
+        anno_mask = transform_hflip(anno_mask)#若图片翻转，则标签也进行翻转
 
         p = np.random.choice([0, 1])
-        transform_vflip = transforms.RandomVerticalFlip(p)
+        transform_vflip = transforms.RandomVerticalFlip(p) #垂直翻转
         img = transform_vflip(img)
         anno_mask = transform_vflip(anno_mask)
 
-        #img = self.to_tensor(img)
-        if np.random.random() > 0.5:
-            p = np.random.uniform(-180,180,1)[0]
+        #2.旋转 #img = self.to_tensor(img)
+        if np.random.random() > 0.5: #旋转范围是0～360度，旋转后尺寸会扩大
+            p = np.random.uniform(-180,180,1)[0] # 均匀分布从[low, high)内中抽取1个样本
             transform_rotate = transforms.RandomRotation((p, p), expand=True)
+            '''
+            随机角度的旋转
+                (p, p) 指定了旋转角度的范围。
+                expand=True 时，如果旋转导致图像尺寸超出原始尺寸，则尺寸会被相应扩大，同时中心不变，新创建的像素位置上填充0（黑色）。
+                    为False，则旋转后的图像会被裁剪以适应原始图像尺寸，可能会导致图像的一部分被裁剪掉。
+            '''
             img = transform_rotate(img)
             anno_mask = transform_rotate(anno_mask)
 
+        #3.调色（亮度、对比度、饱和度）
         if np.random.random() > 0.5:
-            color_aug = transforms.ColorJitter(brightness=[0.5, 1.5], contrast=[0.8, 2.1], saturation=[0.5, 1.5])#augLOwcon0.8-1.5、0.5-1.5、0.5-2.1 brigntness 0.5-1
+            color_aug = transforms.ColorJitter(brightness=[0.5, 1.5], contrast=[0.8, 2.1], saturation=[0.5, 1.5])
+            #augLOwcon0.8-1.5、0.5-1.5、0.5-2.1 brigntness 0.5-1
+            '''
+                brightness=[0.5, 1.5]：亮度。
+                    这意味着图像可能会变得更暗（乘以小于1的数）或更亮（乘以大于1的数）。
+                    y = x * brightness_factor
+                contrast=[0.8, 2.1]：对比度。
+                    对比度增加会使图像中的颜色差异更加显著，而对比度减少则会使颜色差异变得不那么明显。
+                    y = (x - mean) * contrast_factor + mean
+                saturation=[0.5, 1.5]：饱和度。
+                    饱和度增加会使颜色更加鲜艳，而饱和度减少则会使颜色变得更加灰暗。 
+                    转换到HSV（或HSL）色彩空间，然后调整S（饱和度）通道来实现的。
+                    new_saturation = original_saturation * saturation_factor
+                    在HSL和HSV色彩模型中，饱和度的计算公式为：S=(C/V)×100%。其中，C表示颜色的色相，V表示颜色的亮度。
+                    -------------------------------------------------
+                    饱和度指的是图像颜色的纯度或鲜艳程度。
+                    S=(MaxV-MinV)/MaxV
+                        MaxV和MinV分别是R、G、B三个颜色通道中的最大值和最小值。
+                    调整饱和度可以通过对图像的每个像素的颜色值相对于灰度颜色进行插值来实现。具体的插值计算方法可能因不同的图像处理库或算法而有所差异。
+                此外，尽管ColorJitter还允许调整色调（hue）。
+                    转换到HSV（或HSL）色彩空间，然后调整色调（Hue）通道来实现的。
+                    new_hue = (original_hue + hue_shift) % 360
+            '''
             img = color_aug(img)
 
         return img, anno_mask
 
     def augmentation_unsupervised(self, img, anno_mask):
         p = np.random.choice([0, 1])
-        transform_hflip = transforms.RandomHorizontalFlip(p)
+        transform_hflip = transforms.RandomHorizontalFlip(p)#水平翻转
         img = transform_hflip(img)
 
         p = np.random.choice([0, 1])
-        transform_vflip = transforms.RandomVerticalFlip(p)
+        transform_vflip = transforms.RandomVerticalFlip(p)#垂直翻转
         img = transform_vflip(img)
 
-        if np.random.random() > 0.5:
+        if np.random.random() > 0.5:#旋转
             p = np.random.uniform(-180,180,1)[0]
             transform_rotate = transforms.RandomRotation((p, p), expand=True)
             img = transform_rotate(img)
 
-        if np.random.random() > 0.5:
+        if np.random.random() > 0.5:#调色
             color_aug = transforms.ColorJitter(brightness=[0.5, 1.5], contrast=[0.8, 2.1], saturation=[0.5, 1.5])#augLOwcon0.8-1.5、0.5-1.5、0.5-2.1 brigntness 0.5-1
             img = color_aug(img)
 
@@ -327,7 +361,7 @@ class DatasetXCAD_aug(data.Dataset):
 
         return img_FDA_Image, anno_mask, org_img_size
 
-    def load_frame_fakevessel_gaussian_intensity(self,img_name,background_name):
+    def load_frame_fakevessel_gaussian_intensity(self,img_name,background_name): #这个函数似乎没有被调用
         img = self.read_img(img_name)
         anno_mask = self.read_mask(img_name)
         background_img = self.read_background(background_name)

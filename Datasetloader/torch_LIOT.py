@@ -57,17 +57,36 @@ def trans_liot(img):
     #input image H*W
 
     img = np.asarray(img)  # input image H*W->HWC form
-    pad_img = np.pad(img, ((8, 8)), 'constant')#(256+8,256+8)
-    #print("pad_img",pad_img.shape)
+    # asarray()：将输入转换为NumPy数组。
+    #       (256, 256) <PIL.Image.Image> -> <numpy.ndarray>
+    pad_img = np.pad(img, ((8, 8)), 'constant') # (256+2*8,256+2*8)=(272, 272)
+    # print("pad_img",pad_img.shape)
+    '''
+    pad函数，用于给数组（在这个例子中是图像img）添加边缘填充。
+        (8, 8)：指定了在每个维度上要添加的填充宽度。
+        mode='constant'意味着用常数值填充边缘，默认为0。
+    '''
     Weight = pad_img.shape[0]
     Height = pad_img.shape[1]
-    sum_map = np.zeros([4, img.shape[0],img.shape[1]],dtype=np.uint8)#N*4*H*W
-    direction_map = np.zeros([8, img.shape[0],img.shape[1]],dtype=np.uint8)#N*8*H*W
+    sum_map = np.zeros([4, img.shape[0],img.shape[1]],dtype=np.uint8)#N*4*H*W #用来存储4个方向的最终结果
+    direction_map = np.zeros([8, img.shape[0],img.shape[1]],dtype=np.uint8)#N*8*H*W #用来存储8个步长的中间结果
 
-    for direction in range(0, 4):
-        for postion in range(0, 8):
+    for direction in range(0, 4): #右左上下 这四个方向
+        for postion in range(0, 8): #向着某个方向，行进8个像素
             if direction == 0:  # Right
                 new_pad = pad_img[postion + 9: Weight - 7 + postion, 8:-8]  # from low to high
+                '''
+                position + 9: weight - 7 + position：
+                    这是pad_img数组第一个维度（通常是高度）的切片范围。
+                    它从position + 9开始，到weight - 7 + position结束。
+                    (切片操作是左闭右开的）
+                    272-7-9=272-16=256
+                8:-8：
+                    这是pad_img数组第二个维度（通常是宽度）的切片范围。
+                    它从索引8开始，到索引-8结束之前（但实际上是到数组末尾之前的第8个元素，因为负索引表示从数组末尾开始计数）。
+                    这意味着这个范围将跳过前8列，并排除最后8列，提取中间的部分。
+                    272-2*8=256
+                '''
             # new_pad = pad_img[16-postion: Weight - postion, 8:-8]  	# from high to low
             elif direction == 1:  # Left
                 # new_pad = pad_img[7 - postion:-1 * (9 + postion), 8:-8]  	#from low to high
@@ -78,9 +97,9 @@ def trans_liot(img):
             elif direction == 3:  # Down
                 # new_pad = pad_img[8:-8, 7 - postion:-1 * (9 + postion)]  	# from low to high
                 new_pad = pad_img[8:-8, postion:-1 * (16 - postion)]  # from high to low
-            tmp_map = img.astype(np.int64) - new_pad.astype(np.int64)
-            tmp_map[tmp_map > 0] = 1
-            tmp_map[tmp_map <= 0] = 0
+            tmp_map = img.astype(np.int64) - new_pad.astype(np.int64) #原图像-位移后的图像
+            tmp_map[tmp_map > 0] = 1 #减小为1
+            tmp_map[tmp_map <= 0] = 0#增大为0
             direction_map[postion, :, :] = tmp_map[:,:] * math.pow(2, postion)
         sum_direction = np.sum(direction_map, 0)
         sum_map[direction, :, :] = sum_direction
