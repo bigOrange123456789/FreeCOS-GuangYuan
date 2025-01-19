@@ -160,7 +160,7 @@ class DatasetXCAD_aug(data.Dataset):
                 'anno_mask': anno_mask,  #标签数据
                 'gray': img_gray         #(原始)图像数据
             }
-            return batch
+            return batch #实际训练过程中只用 img、anno_mask 这两个值被用到
         else: #无监督
             batch = {
                 'img_name': img_name, # 图片名称

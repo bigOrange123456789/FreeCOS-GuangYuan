@@ -68,14 +68,31 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
     if torch.cuda.device_count() > 1:
         Segment_model.module.train()
         predict_Discriminator_model.module.train()
+        '''
+            _model: 模型实例。
+            .module: 这个属性通常在模型被封装或复制时出现。
+                并行化处理后，原始模型会被封装在一个新的对象中，而这个新对象会有一个.module属性指向原始的模型。
+            .train(): 将模型设置为训练模式。
+        '''
     else:
         print("start_model_train")
         Segment_model.train()
         predict_Discriminator_model.train()
     bar_format = '{desc}[{elapsed}<{remaining},{rate_fmt}]'
     pbar = tqdm(range(config.niters_per_epoch), file=sys.stdout, bar_format=bar_format)
-    dataloader = iter(dataloader_supervised)
-    unsupervised_dataloader = iter(dataloader_unsupervised)
+    '''进度条
+            range(config.niters_per_epoch):
+                这部分代码生成一个迭代器，其范围是从0到config.niters_per_epoch（不包括config.niters_per_epoch）。
+                niters_per_epoch表示每个epoch（一轮训练）中的迭代次数。
+            file=sys.stdout:
+                这个参数指定了进度条信息输出的目标文件对象。sys.stdout代表标准输出流，即命令行界面或终端。
+            bar_format=bar_format:
+                bar_format是一个字符串，用于自定义进度条的显示格式。
+                这个字符串包含了特殊的占位符，tqdm会将这些占位符替换为实际的进度信息。
+                允许用户根据需要定制进度条的外观，比如显示百分比、预计剩余时间等。
+    '''
+    dataloader = iter(dataloader_supervised) # 有监督的数据加载器
+    unsupervised_dataloader = iter(dataloader_unsupervised) # 无监督的数据加载器
     bce_loss = nn.BCELoss()
     sum_loss_seg = 0
     sum_adv_loss = 0
@@ -96,37 +113,73 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
         start_time = time.time()
         optimizer_l.zero_grad()
         optimizer_D.zero_grad()
+        '''
+            PyTorch：它提供了强大的张量计算以及自动微分功能。
+            优化器（Optimizer）：根据梯度来更新的参数。
+            梯度（Gradient）：在当前参数值处损失函数下降最快的方向。
+            反向传播（Backpropagation）：在训练神经网络时，反向传播算法用于计算损失函数关于每个参数的梯度。
+            -----
+            _l：这是一个优化器对象，它已经被初始化并配置为更新某个神经网络模型的参数。
+            .zero_grad()：将模型参数的梯度清零。
+            默认情况下，在一个迭代（batch）中多次调用反向传播，梯度会被累加。
+            因此，在每个新的迭代开始之前，你需要清零梯度，以确保当前迭代的梯度计算是从头开始的，不会受到之前迭代梯度的影响。
+        '''
         try:
-            minibatch = next(dataloader)
-        except StopIteration:
+            minibatch = next(dataloader) #获取一个batch的有监督数据
+        except StopIteration: #如果加载完一个epoch，就重新初始化加载器
             dataloader = iter(dataloader_supervised)
             minibatch = next(dataloader)
 
-        imgs = minibatch['img']
-        gts = minibatch['anno_mask']
+        imgs = minibatch['img'] #imgs: [4, 4, 256, 256] #感觉每个batch应该就是4张图片
+        gts  = minibatch['anno_mask'] #gts: [4, 1, 256, 256]
         imgs = imgs.cuda(non_blocking=True)
-        gts = gts.cuda(non_blocking=True)
-        with torch.no_grad():
+        gts  = gts.cuda(non_blocking=True)
+        '''
+            non_blocking=True：将数据移至GPU时，使用异步操作。
+                这意味着数据移动操作不会阻塞（即等待数据完全传输完毕）当前线程的执行。
+                这可以允许程序在等待数据传输的同时执行其他操作，从而提高程序的总体效率。
+                然而，需要注意的是，如果后续操作立即依赖于这些数据，并且数据尚未完全传输到GPU，则可能会导致未定义行为或错误。
+        '''
+        with torch.no_grad(): #禁用梯度计算
+        # 这个上下文管理器用于暂时禁用梯度计算。在这个代码块内部执行的所有操作都不会被记录在PyTorch的计算图中，因此不会计算梯度。
+        # 这通常用于推理（inference）或评估（evaluation）阶段，以减少内存消耗并加速计算。
             weight_mask = gts.clone().detach()
-            weight_mask[weight_mask == 0] = 0.1
-            weight_mask[weight_mask == 1] = 1
+            # 这行代码克隆了gts张量，克隆是为了避免直接修改原始张量。
+            # detach()方法分离了克隆的张量，使其不再与计算图相关联。
+            # 分离是为了确保后续操作不会影响梯度计算（尽管在这个torch.no_grad()上下文中梯度计算已被禁用）。
+            weight_mask[weight_mask == 0] = 0.1 # 值为0的元素设为0.1
+            weight_mask[weight_mask == 1] = 1   # 值为1的元素保持不变
             criterion_bce = nn.BCELoss(weight=weight_mask)
-        try:
+            # 并将之前修改的weight_mask作为权重参数传递给损失函数。
+            # 这意味着在计算损失时，不同类别的样本将对总损失有不同的贡献，这有助于处理类别不平衡问题。
+        try: #获取一个batch的无监督数据
             unsup_minibatch = next(unsupervised_dataloader)
-        except StopIteration:
-            unsupervised_dataloader = iter(dataloader_unsupervised)
-            unsup_minibatch = next(unsupervised_dataloader)
+            # 这段代码尝试从unsupervised_dataloader迭代器中获取下一个数据批次。
+        except StopIteration: #如果迭代器已经耗尽（引发了StopIteration异常）
+            unsupervised_dataloader = iter(dataloader_unsupervised) # 则重新初始化迭代器
+            unsup_minibatch = next(unsupervised_dataloader) # 再次尝试获取下一个数据批次
 
         unsup_imgs = unsup_minibatch['img']
-        unsup_imgs = unsup_imgs.cuda(non_blocking=True)
+        # unsup_minibatch:{
+        #   'img_name': ['**.png', ...],
+        #   'img':tensor
+        # }
+        unsup_imgs = unsup_imgs.cuda(non_blocking=True) # unsup_imgs:[4, 4, 256, 256]
 
-        # Start train fake vessel
+        # Start train fake vessel 开始训练假血管
         for param in predict_Discriminator_model.parameters():
             param.requires_grad = False
-        pred_sup_l, sample_set_sup, flag_sup = Segment_model(imgs, mask=gts, trained=True, fake=True)
+        '''
+            .parameters()：
+                返回该模型所有可训练参数的迭代器。
+            param.requires_grad = False：
+                requires_grad 指示是否需要进行梯度计算。
+                设置为 False 意味着不会在反向传播过程中计算其梯度。
+        '''
+        pred_sup_l,  sample_set_sup,   flag_sup = Segment_model(imgs, mask=gts, trained=True, fake=True)
         loss_ce = 0.1 * criterion_bce(pred_sup_l, gts)  # For retinal :5 For XCAD:0.1 5 for crack
         loss_dice = criterion(pred_sup_l, gts)
-        pred_target, sample_set_unsup, flag_un = Segment_model(unsup_imgs, mask=None, trained=True, fake=False)
+        pred_target, sample_set_unsup, flag_un  = Segment_model(unsup_imgs, mask=None, trained=True, fake=False)
         D_seg_target_out = predict_Discriminator_model(pred_target)
         loss_adv_target = bce_loss(F.sigmoid(D_seg_target_out),
                                    torch.FloatTensor(D_seg_target_out.data.size()).fill_(source_label).cuda())
@@ -320,20 +373,17 @@ def main():
 
     # define and init the model # 定义并初始化模型
     # Single or not single # 单个或非单个
-    BatchNorm2d = nn.BatchNorm2d # BatchNorm2d: <class 'torch.nn.modules.batchnorm.BatchNorm2d'>
+    BatchNorm2d = nn.BatchNorm2d # <BatchNorm2d>
     Segment_model = Single_contrast_UNet(4, config.num_classes) # config.num_classes=1
 
     init_weight(Segment_model.business_layer, nn.init.kaiming_normal_,
                 # nn.init.kaiming_normal_: <function kaiming_normal_>
-                BatchNorm2d,
-                # BatchNorm2d: <class 'torch.nn.modules.batchnorm.BatchNorm2d'>
-                config.bn_eps,
-                # config.bn_eps: 1e-05
-                config.bn_momentum,
-                # config.bn_momentum: 0.1
+                BatchNorm2d,        # BatchNorm2d: <class 'torch.nn.modules.batchnorm.BatchNorm2d'>
+                config.bn_eps,      # config.bn_eps: 1e-05
+                config.bn_momentum, # config.bn_momentum: 0.1
                 mode='fan_in', nonlinearity='relu')
     # define the learning rate
-    base_lr = config.lr  # 0.04     # 学习率
+    base_lr = config.lr      # 0.04 # 学习率
     base_lr_D = config.lr_D  # 0.04 # dropout?
 
     params_list_l = []
@@ -390,29 +440,30 @@ def main():
     val_score_path = os.path.join('logs', config.logname + '.log') + '/' + 'val_train_f1.csv'
     csv_head = ["epoch", "total_loss", "f1", "AUC", "pr", "recall", "Acc", "Sp", "JC"]
     create_csv(val_score_path, csv_head)
-    for epoch in range(config.state_epoch, config.nepochs):
+    for epoch in range(config.state_epoch, config.nepochs): #按照预先设定的回合数量执行，似乎不会提前中止
         # train_loss_sup, train_loss_consis, train_total_loss
-        train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss, train_loss_dice, train_loss_ce, train_loss_contrast, average_posregion, average_negregion = train(
-            epoch, Segment_model, predict_Discriminator_model, dataloader_supervised, dataloader_unsupervised,
-            optimizer_l, optimizer_D, lr_policy, lrD_policy, criterion, total_iteration, average_posregion,
-            average_negregion)
-        print(
-            "train_seg_loss:{},train_loss_Dtar:{},train_loss_Dsrc:{},train_loss_adv:{},train_total_loss:{},train_loss_contrast:{}".format(
+        train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss, train_loss_dice, train_loss_ce, train_loss_contrast, average_posregion, average_negregion \
+            = train(#训练
+                epoch, Segment_model, predict_Discriminator_model, dataloader_supervised, dataloader_unsupervised,
+                optimizer_l, optimizer_D, lr_policy, lrD_policy, criterion, total_iteration, average_posregion,
+                average_negregion)
+        print("train_seg_loss:{},train_loss_Dtar:{},train_loss_Dsrc:{},train_loss_adv:{},train_total_loss:{},train_loss_contrast:{}".format(
                 train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss,
                 train_loss_contrast))
         print("train_loss_dice:{},train_loss_ce:{}".format(train_loss_dice, train_loss_ce))
         # val_mean_f1, val_mean_pr, val_mean_re, val_mean_f1, val_mean_pr, val_mean_re,val_loss_sup
-        val_mean_f1, val_mean_AUC, val_mean_pr, val_mean_re, val_mean_acc, val_mean_sp, val_mean_jc, val_loss_sup = evaluate(
-            epoch, Segment_model, predict_Discriminator_model, dataloader_val,
-            criterion)  # evaluate(epoch, model, val_target_loader,criterion, criterion_cps)
+        val_mean_f1, val_mean_AUC, val_mean_pr, val_mean_re, val_mean_acc, val_mean_sp, val_mean_jc, val_loss_sup \
+            = evaluate(#验证
+                epoch, Segment_model, predict_Discriminator_model, dataloader_val,
+                criterion)  # evaluate(epoch, model, val_target_loader,criterion, criterion_cps)
         # val_mean_f1, val_mean_AUC, val_mean_pr, val_mean_re,val_mean_acc, val_mean_sp, val_mean_jc, val_loss_sup
         data_row_f1score = [str(epoch), str(train_total_loss), str(val_mean_f1.item()), str(val_mean_AUC),
                             str(val_mean_pr.item()), str(val_mean_re.item()), str(val_mean_acc), str(val_mean_sp),
                             str(val_mean_jc)]
-        print("val_mean_f1", val_mean_f1.item())
+        print("val_mean_f1",  val_mean_f1.item())
         print("val_mean_AUC", val_mean_AUC)
-        print("val_mean_pr", val_mean_pr.item())
-        print("val_mean_re", val_mean_re.item())
+        print("val_mean_pr",  val_mean_pr.item())
+        print("val_mean_re",  val_mean_re.item())
         print("val_mean_acc", val_mean_acc.item())
         write_csv(val_score_path, data_row_f1score)
         if val_mean_f1 > best_val_f1:

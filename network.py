@@ -136,35 +136,49 @@ class SingleIternet(nn.Module):
                 if m.kernel_size == (3, 3):
                     m.dilation = (dilate, dilate)
                     m.padding = (dilate, dilate)
-
             else:
                 if m.kernel_size == (3, 3):
                     m.dilation = (dilate, dilate)
                     m.padding = (dilate, dilate)
 
 class Single_contrast_UNet(nn.Module): # Single_contrast_UNet 单对比度UNet
-    def __init__(self, n_channels,num_classes):
+    # 在PyTorch中，模型是通过继承torch.nn.Module类来定义的，这使得模型能够利用PyTorch提供的各种神经网络构建块和功能。
+    def __init__(self, n_channels,num_classes): # 4,1
         super(Single_contrast_UNet, self).__init__()
-        self.backbone = UNet_contrast(n_channels=n_channels, n_classes=num_classes)
+        self.backbone = UNet_contrast(n_channels=n_channels, n_classes=num_classes) # 通道=4,分类=1
         self.business_layer = []
         self.business_layer.append(self.backbone)
 
     def forward(self, data,mask=None,trained=True, fake=True):
+        '''
+            mask=None：
+                数据标签。
+            trained=True：
+                这个参数可能用于控制模型是否处于训练模式。
+                在某些情况下，模型在训练时的行为（如dropout和批量归一化）与在评估或推理时的行为不同。
+            fake=True：
+                ？
+        '''
         pred, sample_set, flag = self.backbone(data,mask,trained, fake)
         b, c, h, w = data.shape
-        pred = F.interpolate(pred, size=(h, w), mode='bilinear', align_corners=True)  # no use? pred is the same size as data (h,w)
+        pred = F.interpolate(pred, size=(h, w), mode='bilinear', align_corners=True)
+        # no use? pred is the same size as data (h,w)
 
         return pred, sample_set, flag
 
     # @staticmethod
-    def _nostride_dilate(self, m, dilate):
+    def _nostride_dilate(self, m, dilate): # 无步长膨胀
+        '''
+            以下划线（_）开头的标识符通常表示这是一个受保护的成员或私有成员，意味着它主要用于类内部使用，而不应该被类的外部直接访问。
+                m 可能代表某种数据结构或参数矩阵，
+                dilate可能是一个用于膨胀操作的参数，比如膨胀的因子或模式。
+        '''
         if isinstance(m, nn.Conv2d):
             if m.stride == (2, 2):
                 m.stride = (1, 1)
                 if m.kernel_size == (3, 3):
                     m.dilation = (dilate, dilate)
                     m.padding = (dilate, dilate)
-
             else:
                 if m.kernel_size == (3, 3):
                     m.dilation = (dilate, dilate)

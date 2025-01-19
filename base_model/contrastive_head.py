@@ -271,15 +271,24 @@ class linear_block(nn.Module):
 #     return torch.tensor(edge).to(seg)
 
 def mask2edge(seg):
-    laplacian_kernel = torch.tensor(
+    laplacian_kernel = torch.tensor( # 一个3*3的拉普拉斯核，用于图像处理中的边缘检测。
         [-1, -1, -1, -1, 8, -1, -1, -1, -1],
         dtype=torch.float32, device=seg.device).reshape(1, 1, 3, 3).requires_grad_(False)
+    '''
+        torch.tensor(...)：这是PyTorch中用于创建张量的函数。
+            [-1, -1, -1, -1, 8, -1, -1, -1, -1]：这个列表将被转换为一个一维的张量。
+            dtype=torch.float32：这个参数指定了张量的数据类型。
+            device=seg.device：这个参数指定了张量所在的设备。
+        .reshape(1, 1, 3, 3)：这个方法将张量的形状从一维（9个元素）改变为四维，具体形状为(1, 1, 3, 3)。
+        .requires_grad_(False)：不会对这个张量计算梯度。
+    '''
     #print("seg",torch.unique(seg))
     edge_targets = F.conv2d(seg, laplacian_kernel, padding=1)
-    edge_targets = edge_targets.clamp(min=0)
-    edge_targets[edge_targets > 0.1] = 1
-    edge_targets[edge_targets <= 0.1] = 0
-    return edge_targets
+    # padding=1：输入数据的每个边界周围都添加了一圈零。
+    edge_targets = edge_targets.clamp(min=0) # 结果必须非负
+    edge_targets[edge_targets > 0.1] = 1  #加大变为1 #梯度较大的地方为边缘
+    edge_targets[edge_targets <= 0.1] = 0 #较小变为0
+    return edge_targets # 标注出所有边缘
 
 class ContrastiveHead_torch(nn.Module):
 
@@ -517,20 +526,25 @@ class ContrastiveHead_myself(nn.Module):
         self.projector.append(linear_block(in_ch=last_layer_dim, out_ch=self.fc_out_channels))
 
     def forward(self, x, masks,trained,faked):
-        #mask for supervised  and prdict for unsupervised
+        # x:像素点的特征 masks:标签/预测标签 trained:是否正在训练 faked:真标签/预测标签
+        # mask for supervised and prdict for unsupervised 有监督的掩码和无监督的预测
         """
         We get average foreground pixel and background pixel for Quary pixel feature (by mask and thrshold for prdiction)
+        我们得到Quary像素特征的平均前景像素和背景像素（通过掩模和阈值进行预测）
         easy by bounary on the boundary and less than
+        容易通过边界上的赏金和低于
         """
-        self.fake = faked
-        sample_sets = dict()
-        if self.fake:
-            edges = mask2edge(masks)
-        else:
+        self.fake = faked # 我认为fake对应了是否有监督，也就算masks是否为空
+        sample_sets = dict() # dict()用于创建一个新的空字典。
+        if self.fake: # 真标签
+            edges = mask2edge(masks) #找出标签图像中的边缘
+        else:         # 预测标签
             edges = None
         # 1. get query and keys
         if trained:  # training phase
-            sample_results, flag = get_query_keys_myself(edges, masks, thred_u=self.thred_u, scale_u=self.scale_u, percent=self.percent, fake=self.fake)
+            sample_results, flag = get_query_keys_myself(
+                edges, masks,
+                thred_u=self.thred_u, scale_u=self.scale_u, percent=self.percent, fake=self.fake)
             if flag==False:
                 return x, sample_results, flag
             keeps_ = sample_results['keeps']   # batches that keeps e.g. [true, ture]

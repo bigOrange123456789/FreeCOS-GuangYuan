@@ -336,7 +336,7 @@ class UNet_contrast(nn.Module):
     Paper : https://arxiv.org/abs/1505.04597
     """
 
-    def __init__(self, n_channels, n_classes):   # n_classes - 1
+    def __init__(self, n_channels, n_classes): # 通道=4,分类=1
         super(UNet_contrast, self).__init__()
 
         n1 = 64
@@ -366,8 +366,8 @@ class UNet_contrast(nn.Module):
         self.Up_conv2 = conv_block(filters[1], filters[0])
 
         self.Conv = nn.Conv2d(filters[0], n_classes, kernel_size=1, stride=1, padding=0)
-        self.active = torch.nn.Sigmoid()
-        #self.contrast = ContrastiveHead_torch(num_convs=1,num_projectfc=2,thred_u=0.1,scale_u=1.0,percent=0.3) #init the contrast head to conv 8;
+        self.active = torch.nn.Sigmoid() #(-inf,+inf)->(0,1)
+        # self.contrast = ContrastiveHead_torch(num_convs=1,num_projectfc=2,thred_u=0.1,scale_u=1.0,percent=0.3) #init the contrast head to conv 8;
         self.contrast = ContrastiveHead_myself(num_convs=1,num_projectfc=2,thred_u=0.1,scale_u=1.0,percent=0.3)
 
     def cat_(self,xe,xd):
@@ -395,7 +395,6 @@ class UNet_contrast(nn.Module):
         d5 = self.Up5(e5)        # 1/8
         d5 = self.cat_(e4,d5)
         #d5 = torch.cat((e4, d5), dim=1)
-
         d5 = self.Up_conv5(d5)
 
         d4 = self.Up4(d5)        # 1/4
@@ -413,15 +412,15 @@ class UNet_contrast(nn.Module):
         #d2 = torch.cat((e1, d2), dim=1)
         d2 = self.Up_conv2(d2)
         #d2 = d2 + contrast_tensor0
-        out = self.Conv(d2)
-        d1 = self.active(out)
+        out = self.Conv(d2)  #根据每个像素点的特征转换为打分
+        d1 = self.active(out)#将结果转换为类0-1标签
 
-        ### contrastive loss:
-        if trained and fake:
+        ### contrastive loss: #对比损失函数
+        if trained and fake:          # mask是监督值
             contrast_tensor0, sample_sets, flag = self.contrast(d2,mask,trained,fake)   # pos and neg features of synthetic imgs
-        elif trained and fake==False: 
+        elif trained and fake==False: # d1是预测值
             contrast_tensor0, sample_sets, flag = self.contrast(d2, d1, trained, fake)  # pos and neg features of target imgs
-        else:
+        else: #验证
             contrast_tensor0, sample_sets, flag = self.contrast(d2, d1, trained, fake)
 
         return d1, sample_sets, flag

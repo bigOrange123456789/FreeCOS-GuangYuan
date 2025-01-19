@@ -365,17 +365,33 @@ def get_query_keys_myself(
     #######################################################
     # ---------- some pre-processing -----------------------
     #######################################################
-    masks = masks.cpu()  # to cpu, Nx28x28
+    masks = masks.cpu()  # to cpu, Nx28x28 # masks: [4, 1, 256, 256] <Tensor>
     #######################################################
     # ---------- get query mask for each proposal ----------#
     #######################################################
-    if fake:
+    if fake: #如果有监督
         # write_tensormap(masks, "mask.png")
         query_pos_sets = masks.to(dtype=torch.bool)  # here, pos=foreground area  neg=background area
+        # 转换张量的数据类型为布尔型Boolean。非0值转为True，而0转换为False。
         query_neg_sets = torch.logical_not(query_pos_sets)  # the background
+        # 输出的是输入张量逐个元素的逻辑非。
         edges = edges.cpu()  # to cpu, Nx28x28 # 8 1 256 256
-    else:
+    else:    #如果无监督
+        # masks: [4, 1, 256, 256] <Tensor>
         pos_masks = torch.where(masks > (1 - thred_u), 1.0, 0.0).to(dtype=torch.bool)  # greater 0.9
+        '''
+            thred_u:
+                thred_u是一个变量，它表示一个阈值（threshold）。
+                这个阈值用于与masks张量中的元素进行比较，以确定哪些元素满足特定条件。
+            masks > (1 - thred_u):
+                这是一个条件表达式，它比较masks张量中的每个元素是否大于(1 - thred_u)。
+                这个比较操作会生成一个与masks形状相同的布尔张量。
+            torch.where(condition, x, y):
+                torch.where是一个函数，它接受三个参数：condition、x和y。
+                当条件为真时选择1.0，当条件为假时选择0.0。
+            ... .to(dtype=torch.bool):
+                这部分代码将torch.where函数生成的张量（其元素为1.0或0.0）转换为布尔类型。
+        '''
         neg_mask = torch.where(masks < thred_u, 1.0, 0.0).to(dtype=torch.bool)  # less than 0.1
         query_pos_sets = pos_masks.to(dtype=torch.bool)  # here, pos=foreground area  neg=background area
         query_neg_sets = neg_mask.to(dtype=torch.bool)  # 8 1 256 256
