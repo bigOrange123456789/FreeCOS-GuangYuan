@@ -534,49 +534,91 @@ class ContrastiveHead_myself(nn.Module):
         easy by bounary on the boundary and less than
         容易通过边界上的赏金和低于
         """
-        self.fake = faked # 我认为fake对应了是否有监督，也就算masks是否为空
+        self.fake = faked # fake=T/F -> masks真标签/预测标签
         sample_sets = dict() # dict()用于创建一个新的空字典。
         if self.fake: # 真标签
-            edges = mask2edge(masks) #找出标签图像中的边缘
+            edges = mask2edge(masks) # 找出标签图像中的边缘
         else:         # 预测标签
             edges = None
-        # 1. get query and keys
+        # 1. get query and keys # 从不同属性的区域中随机采样一些点
         if trained:  # training phase
             sample_results, flag = get_query_keys_myself(
-                edges, masks,
+                edges, masks, # 边缘/空, 标签/预测标签
                 thred_u=self.thred_u, scale_u=self.scale_u, percent=self.percent, fake=self.fake)
-            if flag==False:
+            if flag==False: # flag==False似乎是该batch中图片数量为0等异常情况
                 return x, sample_results, flag
-            keeps_ = sample_results['keeps']   # batches that keeps e.g. [true, ture]
-            keeps = keeps_.reshape(-1, 1, 1)
-            keeps = keeps.expand(keeps.shape[0], x.shape[2], x.shape[3]) # expand the flag(numbers of batch level) for the whole feature
-            keeps_all = keeps.reshape(-1)   # to filter abandoned batches in x_pro
+            keeps_ = sample_results['keeps'] # batches that keeps e.g. [true, ture]
+            keeps = keeps_.reshape(-1, 1, 1) # [4, 1, 1] <- [4]
+            keeps = keeps.expand(keeps.shape[0], x.shape[2], x.shape[3]) # [4, 256, 256] <- [4, 1, 1]
+            # 展开整个功能的标志(批次级别的编号) # expand the flag(numbers of batch level) for the whole feature
+            '''
+                keeps.expand(...)：
+                    expand方法用于返回一个与当前张量具有相同数据但在指定维度上大小被扩展的新张量。
+                    其中某些维度的大小被“扩展”了（即，这些维度的大小增加，但数据是重复以填充这些额外空间的）。
+                    注意，expand只能用于扩展那些原始大小为1的维度。
+            '''
+            keeps_all = keeps.reshape(-1) # to filter abandoned batches in x_pro
+            # keeps_all [262144] <- [4, 256, 256]
         else:  # evaluation phase
             sample_results = get_query_keys_eval(masks)
 
         # 2. forward
+        # 编码器和投影器都没有造成像素点特征维度的变化
+        # x.shape:[4, 64, 256, 256]
         for conv in self.encoder:
             x = conv(x)
+        # x.shape:[4, 64, 256, 256]
         x_pro = self.projector[0](x)
+        # x_pro.shape:[4, 64, 256, 256]
         for i in range(1, len(self.projector) - 1):
             x_pro = self.projector[i](x_pro)
+        # x_pro.shape:[4, 64, 256, 256]
         n, c, h, w = x_pro.shape
+        # x_pro.permute(0, 2, 3, 1).shape:[4, 256, 256, 64]
         x_pro = x_pro.permute(0, 2, 3, 1).reshape(-1, c)  # n,c,h,w -> n,h,w,c -> (nhw),c
+        # x_pro.shape:[262144, 64]
         x_pro = self.projector[-1](x_pro)  # (nhw),c
+        # x_pro.shape:[262144, 64]
+        # 像素点个数为:262144, 每个像素点特征的维度为:64
 
-        # 3. get vectors for queries and keys so that we can calculate contrastive loss
+        # 3. get vectors for queries and keys so that we can calculate contrastive loss # 获取查询和关键字的向量，以便计算对比损失
         if trained:
             query_pos_num = sample_results['query_pos_sets'].to(device=x_pro.device, dtype=x_pro.dtype).sum(dim=[2, 3])
             query_neg_num = sample_results['query_neg_sets'].to(device=x_pro.device, dtype=x_pro.dtype).sum(dim=[2, 3])
+            '''
+                每张图片中，从血管区域中使用采样点个数 [[3093.],[5500.],[4475.],[6889.]],
+                每张图片中，从背景区域中使用采样点个数 [[62443.],[60036.],[61061.],[58647.]]
+            '''
 
             sample_easy_pos = x_pro[keeps_all][sample_results['easy_positive_sets_N'].reshape(-1), :]  # kept_batch*500 , c
             sample_easy_neg = x_pro[keeps_all][sample_results['easy_negative_sets_N'].reshape(-1), :]
             sample_hard_pos = x_pro[keeps_all][sample_results['hard_positive_sets_N'].reshape(-1), :]
             sample_hard_neg = x_pro[keeps_all][sample_results['hard_negative_sets_N'].reshape(-1), :]
+            '''
+            sample_easy_pos [2000, 64]
+            sample_easy_neg [2000, 64]
+            sample_hard_pos [2000, 64]
+            sample_hard_neg [2000, 64]
+            2000=4*500 每张图片最多选取500个采样点
+            '''
 
-            squeeze_sampletresult = sample_results['query_pos_sets'].squeeze(1)#b 256 256 to get the whole pos map
+            squeeze_sampletresult = sample_results['query_pos_sets'].squeeze(1) # query+sets:标注了血管区域的所有像素
+            # [4, 256, 256] <- [4, 1, 256, 256]
+            # b 256 256 to get the whole pos map
             query_pos = (x_pro[keeps_all].reshape(-1, 256, 256, 64) * squeeze_sampletresult.to(
-                device=x_pro[keeps_all].device).unsqueeze(3)).sum(dim=[1, 2]) / query_pos_num    # filter out features of all pos pixels in ori mask and get their feature mean
+                device=x_pro[keeps_all].device).unsqueeze(3)).sum(dim=[1, 2]) / query_pos_num
+            # filter out features of all pos pixels in ori mask and get their feature mean
+            # 滤除ori掩模中所有pos像素的特征，得到它们的特征均值
+            # x_pro.shape:[262144, 64]
+            '''
+                x_pro[keeps_all] [262144, 64]
+                x_pro[keeps_all].reshape(-1, 256, 256, 64) [4, 256, 256, 64]
+    
+                squeeze_sampletresult.to(device=x_pro[keeps_all].device) [4, 256, 256]
+                squeeze_sampletresult.to(device=x_pro[keeps_all].device).unsqueeze(3) [4, 256, 256, 1]
+                
+                query_pos: [4, 64]
+            '''
             query_pos_set = x_pro[keeps_all][sample_results['query_pos_sets'].reshape(-1), :]     # all positive pixels' feature in x_pro
 
             squeeze_negsampletresult = sample_results['query_neg_sets'].squeeze(1)#5 256 256

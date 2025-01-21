@@ -351,8 +351,8 @@ def write_tensormap(tensormap, file_name):
 
 
 def get_query_keys_myself(
-        edges,
-        masks=None,
+        edges,      # 边缘/空,
+        masks=None, # 标签/预测标签
         thred_u=0.1,
         scale_u=1.0,
         percent=0.3,
@@ -363,23 +363,23 @@ def get_query_keys_myself(
             masks: Tensor, cuda, Nx28x28 is the mask or prediction 0-1 0r [0,1]
     """
     #######################################################
-    # ---------- some pre-processing -----------------------
+    # ---------- some pre-processing 一些预处理 -----------------------
     #######################################################
     masks = masks.cpu()  # to cpu, Nx28x28 # masks: [4, 1, 256, 256] <Tensor>
     #######################################################
-    # ---------- get query mask for each proposal ----------#
+    # ---------- get query mask for each proposal 获取每个proposal的查询MASK ----------#
     #######################################################
-    if fake: #如果有监督
+    if fake: # masks为监督标签、edges非空
         # write_tensormap(masks, "mask.png")
         query_pos_sets = masks.to(dtype=torch.bool)  # here, pos=foreground area  neg=background area
-        # 转换张量的数据类型为布尔型Boolean。非0值转为True，而0转换为False。
+        # +sets为血管区域：转换为布尔型Boolean。非0值转为True，而0转换为False。
         query_neg_sets = torch.logical_not(query_pos_sets)  # the background
-        # 输出的是输入张量逐个元素的逻辑非。
+        # -sets为背景区域：输出的是输入张量逐个元素的逻辑非。
         edges = edges.cpu()  # to cpu, Nx28x28 # 8 1 256 256
-    else:    #如果无监督
+    else:    #masks为预测结果、edges为空
         # masks: [4, 1, 256, 256] <Tensor>
         pos_masks = torch.where(masks > (1 - thred_u), 1.0, 0.0).to(dtype=torch.bool)  # greater 0.9
-        '''
+        ''' +masks标出了绝对为血管的区域
             thred_u:
                 thred_u是一个变量，它表示一个阈值（threshold）。
                 这个阈值用于与masks张量中的元素进行比较，以确定哪些元素满足特定条件。
@@ -393,61 +393,117 @@ def get_query_keys_myself(
                 这部分代码将torch.where函数生成的张量（其元素为1.0或0.0）转换为布尔类型。
         '''
         neg_mask = torch.where(masks < thred_u, 1.0, 0.0).to(dtype=torch.bool)  # less than 0.1
+        # -masks标出了绝对是背景的区域
         query_pos_sets = pos_masks.to(dtype=torch.bool)  # here, pos=foreground area  neg=background area
         query_neg_sets = neg_mask.to(dtype=torch.bool)  # 8 1 256 256
     #######################################################
     # ----------- get different types of keys -------------
     #######################################################
     # different sets, you can refer to the figure in https://blog.huiserwang.site/2022-03/Project-ContrastMask/ to easily understand.
-    if fake:  # fakedata  with mask   #对于fakedata这一步没用，因为mask的值本来就是1,0
+    if fake:  # fakedata  with mask   #masks为监督标签、edges非空
         # for all region
-        label_positive_sets = torch.where(masks > (1.0 - thred_u * scale_u), 1.0,
-                                           0.0)  # scale_u can adjust the threshold, it is not used in our paper.
+        label_positive_sets = torch.where(masks > (1.0 - thred_u * scale_u), 1.0,0.0) # label_positive_sets=mask
+        # +sets为血管区域：实际上和这里的masks相同
+        # thred_u=0.1 scale_u=1.0  (1.0 - thred_u * scale_u)=0.9
+        # scale_u can adjust the threshold, it is not used in our paper.
         label_negative_sets = torch.where(masks < (thred_u * scale_u), 1.0, 0.0)
-        easy_positive_sets = label_positive_sets
-        easy_negative_sets = label_negative_sets
-        hard_positive_sets = label_positive_sets
-        hard_negative_sets = label_negative_sets
-
+        # -sets为背景区域
+        easy_positive_sets = label_positive_sets # 易+sets
+        easy_negative_sets = label_negative_sets # 易-sets
+        hard_positive_sets = label_positive_sets # 难+sets
+        hard_negative_sets = label_negative_sets # 难-sets
     else:
         # for novel(unseen), get keys according to cam, hard and easy are both sampled in the same sets, replace original sets
-        unseen_positive_sets = torch.where(masks > (1.0 - thred_u * scale_u), 1.0,
-                                           0.0)  # scale_u can adjust the threshold, it is not used in our paper.
+        # 对于新的（不可见的），根据cam获取key，难和易都在同一组中采样，替换原始组
+        unseen_positive_sets = torch.where(masks > (1.0 - thred_u * scale_u), 1.0, 0.0)
+        # scale_u can adjust the threshold, it is not used in our paper. # scale_u可以调整阈值，但我们的论文中没有使用它。
         unseen_negative_sets = torch.where(masks < (thred_u * scale_u), 1.0, 0.0)
-        easy_positive_sets = unseen_positive_sets
-        easy_negative_sets = unseen_negative_sets
+        easy_positive_sets = unseen_positive_sets # 易+sets
+        easy_negative_sets = unseen_negative_sets # 易-sets
         hard_positive_sets = unseen_positive_sets
         hard_negative_sets = unseen_negative_sets
     #######################################################
-    # --------- determine the number of sampling ----------
+    # --------- determine the number of sampling 确定采样次数 ----------
     #######################################################
     # how many points can be sampled for all proposals for each type of sets
+    # 每张图片标注区域的像素数量
     num_Epos_ = easy_positive_sets.sum(dim=[2, 3])  # H, W to count points numbers E=easy, H=hard
     num_Hpos_ = hard_positive_sets.sum(dim=[2, 3])
     num_Eneg_ = easy_negative_sets.sum(dim=[2, 3])
     num_Hneg_ = hard_negative_sets.sum(dim=[2, 3])
+    '''
+    easy_positive_sets: [4, 1, 256, 256]
+    num_Epos_: [[3093.],[5500.],[4475.],[6889.]]
+    num_Hpos_: [[3093.],[5500.],[4475.],[6889.]]
+    num_Eneg_: [[62443.],[60036.],[61061.],[58647.]]
+    num_Hneg_: [[62443.],[60036.],[61061.],[58647.]]
+    '''
     # if available points are less than 5 for each type, this proposal will be dropped out.
+    # 如果每种类型的可用区域大小低于5像素，则该类型将被放弃。
     available_num = torch.cat([num_Epos_, num_Eneg_, num_Hpos_, num_Hneg_])
+    '''
+    available_num: [
+        [ 3093.],[ 5500.],[ 4475.],[ 6889.], #num_Epos_
+        [62443.],[60036.],[61061.],[58647.], #num_Eneg_
+        [ 3093.],[ 5500.],[ 4475.],[ 6889.], #num_Hpos_
+        [62443.],[60036.],[61061.],[58647.]  #num_Hneg_
+        ]
+
+    '''
     abandon_inds = torch.where(available_num < 5, 1, 0).reshape(4, -1)
+    '''
+    torch.where(available_num < 5, 1, 0): [
+        [0],[0],[0],[0],
+        [0],[0],[0],[0],
+        [0],[0],[0],[0],
+        [0],[0],[0],[0]]
+    abandon_inds: [
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0]]
+    '''
     keeps = torch.logical_not(abandon_inds.sum(0).to(dtype=torch.bool))
-    if True not in keeps:  # all proposals do not have enough points that can be sample. This is a extreme situation.
-        # set the points number of all types sets to 2
-        # sometimes, there would still raise an error. I will fix it later.
-        sample_num_Epos = torch.ones_like(num_Epos_) * 2
+    '''
+    keeps: [
+        True, #Epos
+        True, #Eneg
+        True, #Hpos
+        True  #Hneg
+        ]
+    '''
+    if True not in keeps:  # 所有提案都没有足够的要点可以作为样本。这是一个极端的情况。# all proposals do not have enough points that can be sample. This is a extreme situation.
+        # 将所有类型集的点数设置为2。 set the points number of all types sets to 2
+        # 有时，仍然会出现错误。我稍后会修复它。 sometimes, there would still raise an error. I will fix it later.
+        sample_num_Epos = torch.ones_like(num_Epos_) * 2 #[[2.],[2.],[2.],[2.]]
         sample_num_Hpos = torch.ones_like(num_Hpos_) * 2
         sample_num_Eneg = torch.ones_like(num_Eneg_) * 2
         sample_num_Hneg = torch.ones_like(num_Hneg_) * 2.
     else:
+        '''
+        num_Epos_: [[3093.],[5500.],[4475.],[6889.]]
+        num_Hpos_: [[3093.],[5500.],[4475.],[6889.]]
+        num_Eneg_: [[62443.],[60036.],[61061.],[58647.]]
+        num_Hneg_: [[62443.],[60036.],[61061.],[58647.]]
+        '''
         sample_num_Epos = (percent * num_Epos_[keeps]).ceil()  # percent is the sigma in our paper
         sample_num_Hpos = (percent * num_Hpos_[keeps]).ceil()
         sample_num_Eneg = (percent * num_Eneg_[keeps]).ceil()
         sample_num_Hneg = (percent * num_Hneg_[keeps]).ceil()
-
+        '''
+        percent: 0.3
+        sample_num_Epos: [[ 928.],[1651.],[1343.],[2067.]]
+        sample_num_Hpos: [[ 928.],[1651.],[1343.],[2067.]]
+        sample_num_Eneg: [[18733.],[18011.],[18319.],[17595.]]
+        sample_num_Hneg: [[18733.],[18011.],[18319.],[17595.]]
+        '''
     #######################################################
     # ----------------- sample points ---------------------
     #######################################################
     empty_dict = {}
-    easy_positive_sets_N, flag0 = get_pixel_sets_N_myself(easy_positive_sets[keeps], sample_num_Epos)   # get a part of 1s from mask
+    easy_positive_sets_N, flag0 = get_pixel_sets_N_myself(easy_positive_sets[keeps], sample_num_Epos)
+    # easy_positive_sets_N 是从掩模图easy_positive_sets[keeps]中随机选出一些点得到的
+    # 从掩码中获取1s的一部分 get a part of 1s from mask
     if not flag0:    # easy_positive_sets[keeps] is empty, say the number of pos or neg pixels in all masks of a batch are less than 5
         return empty_dict, False
     easy_negative_sets_N, flag1 = get_pixel_sets_N_myself(easy_negative_sets[keeps], sample_num_Eneg)
@@ -462,7 +518,7 @@ def get_query_keys_myself(
 
     # Record points number
     num_per_type = dict()
-    num_per_type['Epos_num_'] = sample_num_Epos
+    num_per_type['Epos_num_'] = sample_num_Epos #记录选取像素点的数量(当这个值大于500时、只取500)
     num_per_type['Hpos_num_'] = sample_num_Hpos
     num_per_type['Eneg_num_'] = sample_num_Eneg
     num_per_type['Hneg_num_'] = sample_num_Hneg
@@ -471,13 +527,14 @@ def get_query_keys_myself(
     # ------------------- return data ---------------------
     #######################################################
     return_result = dict()
-    return_result['keeps'] = keeps  # which proposal is preserved
-    return_result['num_per_type'] = num_per_type
-    return_result['query_pos_sets'] = query_pos_sets[keeps]  # query area for foreground   # keep suitable mask in batches
-    return_result['query_neg_sets'] = query_neg_sets[keeps]  # query area for background   # keep suitable reverse mask in batches
-    return_result['easy_positive_sets_N'] = easy_positive_sets_N.to(dtype=torch.bool)
-    return_result['easy_negative_sets_N'] = easy_negative_sets_N.to(dtype=torch.bool)
-    return_result['hard_positive_sets_N'] = hard_positive_sets_N.to(dtype=torch.bool)    # NO DIFFERENCE between EASY and HARD, both of them aims to get a part of 1s from mask
+    return_result['keeps'] = keeps  # 每个图是否可用像素点大于5个 # which proposal is preserved
+    return_result['num_per_type'] = num_per_type # 图中取用像素点的个数
+    return_result['query_pos_sets'] = query_pos_sets[keeps] # +sets为血管区域 # 前台查询区域query area for foreground   # 批量保留合适的掩码keep suitable mask in batches
+    return_result['query_neg_sets'] = query_neg_sets[keeps] # -sets为背景区域 # query area for background   # keep suitable reverse mask in batches
+    # 记录选取的那些点
+    return_result['easy_positive_sets_N'] = easy_positive_sets_N.to(dtype=torch.bool) # 血管区域的子区域
+    return_result['easy_negative_sets_N'] = easy_negative_sets_N.to(dtype=torch.bool) # 背景区域的子区域
+    return_result['hard_positive_sets_N'] = hard_positive_sets_N.to(dtype=torch.bool) # NO DIFFERENCE between EASY and HARD, both of them aims to get a part of 1s from mask
     return_result['hard_negative_sets_N'] = hard_negative_sets_N.to(dtype=torch.bool)
     return return_result, True
 
@@ -641,27 +698,49 @@ def get_pixel_sets_N(src_sets, select_num):
 
 
 def get_pixel_sets_N_myself(src_sets, select_num):
+    # src_sets: 每个图片的mask。 shape=[4, 1, 256, 256]
+    # select_num：每个图片需要的像素数。[[ 928.],[1651.],[1343.],[2067.]]
     return_ = []
     if isinstance(src_sets, torch.Tensor):
-        bs, c, h, w = src_sets.shape
+        bs, c, h, w = src_sets.shape # 4, 1, 256, 256
         flag = True
-        if torch.where(src_sets > 0.5, 1, 0).shape[0] == 0:
+        if torch.where(src_sets > 0.5, 1, 0).shape[0] == 0: # 如果这一批次的图片数量为0则直接返回
             flag = False
             return src_sets, False
         keeps_all = torch.where(src_sets > 0.5, 1, 0).reshape(bs, -1)  # flatten to get bs,(c*h*w) ,(c=1) for masks
+        # 这里应该就是将每个mask图片都展开为1维 # [4, 65536] <- [4, 1, 256, 256]
         for idx, keeps in enumerate(keeps_all):  # for each batch
-            keeps_init = np.zeros_like(keeps.cpu())  # For 1204
-            src_set_index = np.arange(len(keeps))
+            # idx=0, keeps.shape=[65536]
+            keeps_init = np.zeros_like(keeps.cpu()) # 应该是一个长度为65536的全0数组 # For 1204
+            src_set_index = np.arange(len(keeps)) # [0,1,...65536-1]
             src_set_index_keeps = src_set_index[keeps.cpu().numpy().astype(np.bool)]  # For 1204
+            # src_set_index_keeps: MASK中所有标注位置的索引
+            # src_set_index[...]：这里的方括号用于索引操作。只有对应于keeps中True值的索引会被保留。
+            # src_set_index_keeps: shape=(3093) [22162 22164 22165 ... 45314 45568 45569] <numpy.ndarray>
             select_num[idx] = int(select_num[idx]) if int(select_num[idx]) < 500 else 500
+            # 每张图片中的采样像素个数不能超过500
+            # select_num[idx]: tensor([500.]) <- tensor([928.])
+            '''
+                条件表达式：if int(select_num[idx]) < 500 else 500
+                    如果int(select_num[idx])的结果小于500，那么条件表达式的结果就是int(select_num[idx])本身。
+                    如果int(select_num[idx])的结果不小于500（即大于或等于500），那么条件表达式的结果就是500。
+            '''
             resultList = random.sample(range(0, len(src_set_index_keeps)), int(select_num[idx]))
+            # resultList: 从0～3093-1中随机取出500个数字
+            # random.sample(range(1,10),5) = [9, 8, 1, 4, 3]
             src_set_index_keeps_select = src_set_index_keeps[resultList]
+            # 随机从MASK中获取500个标注位置的索引
             keeps_init[src_set_index_keeps_select] = 1
-            return_.append(torch.tensor(keeps_init).reshape(1, h, w))
+            return_.append(torch.tensor(keeps_init).reshape(1, h, w)) # 在2D图片中标出这500个标注位置
     else:
         raise ValueError(f'only tensor is supported!')
     return_ = [aa.tolist() for aa in return_]  # For 1207
     return torch.tensor(return_) * src_sets, flag    # torch.tensor(return_) * src_sets  <--> torch.tensor(return_) ?
+    '''
+        torch.tensor(return_)：4张图片、每张图片标出了500个点。
+        src_sets:每个图片的mask。
+        理论上：torch.tensor(return_)=torch.tensor(return_) * src_sets
+    '''
 
 
 def get_pixel_sets_distrans(src_sets, radius=2):

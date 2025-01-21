@@ -378,42 +378,56 @@ class UNet_contrast(nn.Module):
         return xd
 
     def forward(self, x, mask, trained,fake):
-        e1 = self.Conv1(x)
+        '''
+        整体架构：
+            输入：conv:4->64
+            分析：[d2 d3 d4 d5; u5 u4 u3 u2]
+            输出：conv:64->1
+        down:
+            pool:   (c,   n/2 )
+            conv:   (c*2, n   )
+        up:
+            up:     (c/2,   n*2 )？需要仔细研究一下
+            cat:    (c*2,   n   )
+            conv:   (c/2,   n   )
+        '''
+        e1 = self.Conv1(x) # e1[* 64, 256^] <- x[* 4, 256^]
 
-        e2 = self.Maxpool1(e1)    # 1/2
-        e2 = self.Conv2(e2)
+        e2 = self.Maxpool1(e1)    # 1/2 # e2[* 64, 128^]
+        e2 = self.Conv2(e2)             # e2[* 128, 128^]
 
-        e3 = self.Maxpool2(e2)    # 1/4
-        e3 = self.Conv3(e3)
+        e3 = self.Maxpool2(e2)    # 1/4 # e3[* 128, 64^]
+        e3 = self.Conv3(e3)             # e3[* 256, 64^]
 
-        e4 = self.Maxpool3(e3)    # 1/8
-        e4 = self.Conv4(e4)
+        e4 = self.Maxpool3(e3)    # 1/8 # e4[* 256, 32^]
+        e4 = self.Conv4(e4)             # e4[* 512, 32^]
 
-        e5 = self.Maxpool4(e4)    # 1/16
-        e5 = self.Conv5(e5)
+        e5 = self.Maxpool4(e4)    # 1/16# e5[* 512, 16^]
+        e5 = self.Conv5(e5)             # e5[* 1024, 16^]
 
-        d5 = self.Up5(e5)        # 1/8
-        d5 = self.cat_(e4,d5)
+        d5 = self.Up5(e5)        # 1/8  # d5[* 512, 32^]
+        d5 = self.cat_(e4,d5)           # d5[* 1024, 32^]
         #d5 = torch.cat((e4, d5), dim=1)
-        d5 = self.Up_conv5(d5)
+        d5 = self.Up_conv5(d5)          # d5[* 512, 32^]
 
-        d4 = self.Up4(d5)        # 1/4
-        d4 = self.cat_(e3, d4)
+        d4 = self.Up4(d5)        # 1/4  # d4[* 256, 64^]
+        d4 = self.cat_(e3, d4)          # d4[* 512, 64^]
         #d4 = torch.cat((e3, d4), dim=1)
-        d4 = self.Up_conv4(d4)
+        d4 = self.Up_conv4(d4)          # d4[* 256, 64^]
 
-        d3 = self.Up3(d4)        # 1/2
-        d3 = self.cat_(e2, d3)
+        d3 = self.Up3(d4)        # 1/2  # d3[* 128, 128^]
+        d3 = self.cat_(e2, d3)          # d3[* 256, 128^]
         #d3 = torch.cat((e2, d3), dim=1)
-        d3 = self.Up_conv3(d3)
+        d3 = self.Up_conv3(d3)          # d3[* 128, 128^]
 
-        d2 = self.Up2(d3)        # 1
-        d2 = self.cat_(e1, d2)
+        d2 = self.Up2(d3)        # 1    # d2[* 64, 256^]
+        d2 = self.cat_(e1, d2)          # d2[* 128, 256^]
         #d2 = torch.cat((e1, d2), dim=1)
-        d2 = self.Up_conv2(d2)
+        d2 = self.Up_conv2(d2)          # d2[* 64, 256^]
         #d2 = d2 + contrast_tensor0
-        out = self.Conv(d2)  #根据每个像素点的特征转换为打分
-        d1 = self.active(out)#将结果转换为类0-1标签
+        # d2 [4, 64, 256, 256] <Tensor>
+        out = self.Conv(d2)  #根据每个像素点的特征转换为打分 # out[* 1, 256^]
+        d1 = self.active(out)#将结果转换为类0-1标签 # d1[* 1, 256^]
 
         ### contrastive loss: #对比损失函数
         if trained and fake:          # mask是监督值
