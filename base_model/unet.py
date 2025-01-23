@@ -438,6 +438,8 @@ class UNet_contrast(nn.Module):
             contrast_tensor0, sample_sets, flag = self.contrast(d2, d1, trained, fake)
 
         return d1, sample_sets, flag
+        # d1：         类0-1标签的预测结果
+        # sample_sets：用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
 
 
 class UNet_contrastbase(nn.Module):

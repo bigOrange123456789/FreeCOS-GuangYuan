@@ -177,7 +177,6 @@ class MiniUNet(nn.Module):
         logits = self.outc(x)
         return x1, x, logits
 
-
 class Iternet(nn.Module):
     def __init__(self, n_channels, n_classes, out_channels=64, iterations=3):
         super(Iternet, self).__init__()

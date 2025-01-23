@@ -517,8 +517,8 @@ def get_query_keys_myself(
         return empty_dict, False
 
     # Record points number
-    num_per_type = dict()
-    num_per_type['Epos_num_'] = sample_num_Epos #记录选取像素点的数量(当这个值大于500时、只取500)
+    num_per_type = dict() #记录选取难易样本像素点的数量
+    num_per_type['Epos_num_'] = sample_num_Epos #当这个值大于500时、只取500
     num_per_type['Hpos_num_'] = sample_num_Hpos
     num_per_type['Eneg_num_'] = sample_num_Eneg
     num_per_type['Hneg_num_'] = sample_num_Hneg
@@ -529,13 +529,13 @@ def get_query_keys_myself(
     return_result = dict()
     return_result['keeps'] = keeps  # 每个图是否可用像素点大于5个 # which proposal is preserved
     return_result['num_per_type'] = num_per_type # 图中取用像素点的个数
-    return_result['query_pos_sets'] = query_pos_sets[keeps] # +sets为血管区域 # 前台查询区域query area for foreground   # 批量保留合适的掩码keep suitable mask in batches
-    return_result['query_neg_sets'] = query_neg_sets[keeps] # -sets为背景区域 # query area for background   # keep suitable reverse mask in batches
+    return_result['query_pos_sets'] = query_pos_sets[keeps] # +sets为血管区域[4, 1, 256, 256] # 前台查询区域query area for foreground   # 批量保留合适的掩码keep suitable mask in batches
+    return_result['query_neg_sets'] = query_neg_sets[keeps] # -sets为背景区域[4, 1, 256, 256] # query area for background   # keep suitable reverse mask in batches
     # 记录选取的那些点
-    return_result['easy_positive_sets_N'] = easy_positive_sets_N.to(dtype=torch.bool) # 血管区域的子区域
-    return_result['easy_negative_sets_N'] = easy_negative_sets_N.to(dtype=torch.bool) # 背景区域的子区域
-    return_result['hard_positive_sets_N'] = hard_positive_sets_N.to(dtype=torch.bool) # NO DIFFERENCE between EASY and HARD, both of them aims to get a part of 1s from mask
-    return_result['hard_negative_sets_N'] = hard_negative_sets_N.to(dtype=torch.bool)
+    return_result['easy_positive_sets_N'] = easy_positive_sets_N.to(dtype=torch.bool) # 血管区域的子区域[4, 1, 256, 256]
+    return_result['easy_negative_sets_N'] = easy_negative_sets_N.to(dtype=torch.bool) # 背景区域的子区域[4, 1, 256, 256]
+    return_result['hard_positive_sets_N'] = hard_positive_sets_N.to(dtype=torch.bool) # [4, 1, 256, 256] NO DIFFERENCE between EASY and HARD, both of them aims to get a part of 1s from mask
+    return_result['hard_negative_sets_N'] = hard_negative_sets_N.to(dtype=torch.bool) # [4, 1, 256, 256]
     return return_result, True
 
 

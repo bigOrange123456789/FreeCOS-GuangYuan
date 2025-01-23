@@ -586,7 +586,7 @@ class ContrastiveHead_myself(nn.Module):
             query_pos_num = sample_results['query_pos_sets'].to(device=x_pro.device, dtype=x_pro.dtype).sum(dim=[2, 3])
             query_neg_num = sample_results['query_neg_sets'].to(device=x_pro.device, dtype=x_pro.dtype).sum(dim=[2, 3])
             '''
-                每张图片中，从血管区域中使用采样点个数 [[3093.],[5500.],[4475.],[6889.]],
+                每张图片中，从血管区域中使用采样点个数 [[3093.],[5500.],[4475.],[6889.]]
                 每张图片中，从背景区域中使用采样点个数 [[62443.],[60036.],[61061.],[58647.]]
             '''
 
@@ -607,8 +607,8 @@ class ContrastiveHead_myself(nn.Module):
             # b 256 256 to get the whole pos map
             query_pos = (x_pro[keeps_all].reshape(-1, 256, 256, 64) * squeeze_sampletresult.to(
                 device=x_pro[keeps_all].device).unsqueeze(3)).sum(dim=[1, 2]) / query_pos_num
-            # filter out features of all pos pixels in ori mask and get their feature mean
-            # 滤除ori掩模中所有pos像素的特征，得到它们的特征均值
+            # 滤除ori掩模中所有pos像素的特征，得到它们的特征均值 filter out features of all pos pixels in ori mask and get their feature mean
+            # 这句代码实际上就是对像素点进行加权，一张图片的采样点数量越多、每个采样点的权重就越小
             # x_pro.shape:[262144, 64]
             '''
                 x_pro[keeps_all] [262144, 64]
@@ -617,29 +617,70 @@ class ContrastiveHead_myself(nn.Module):
                 squeeze_sampletresult.to(device=x_pro[keeps_all].device) [4, 256, 256]
                 squeeze_sampletresult.to(device=x_pro[keeps_all].device).unsqueeze(3) [4, 256, 256, 1]
                 
+                (x_pro[keeps_all].reshape(-1, 256, 256, 64) * squeeze_sampletresult.to(
+                device=x_pro[keeps_all].device).unsqueeze(3)).sum(dim=[1, 2])
+                .shape = [4, 64]
+                
+                query_pos_num: 每张图片中，从血管区域中使用采样点个数 [[3093.],[5500.],[4475.],[6889.]]
+                .shape = [4, 1]
+                
                 query_pos: [4, 64]
             '''
-            query_pos_set = x_pro[keeps_all][sample_results['query_pos_sets'].reshape(-1), :]     # all positive pixels' feature in x_pro
+            query_pos_set = x_pro[keeps_all][sample_results['query_pos_sets'].reshape(-1), :]
+            # xPro中的所有正像素特征 all positive pixels' feature in x_pro
+            '''
+                x_pro:              [262144, 64]
+                x_pro[keeps_all]:   [262144, 64]
+                sample_results['query_pos_sets']:   [4, 1, 256, 256]
+                sample_results['query_pos_sets'].reshape(-1): [4*256*256]=[262144]
+                query_pos_set:    [<262144, 64]=[19957, 64]
+            '''
 
-            squeeze_negsampletresult = sample_results['query_neg_sets'].squeeze(1)#5 256 256
+            squeeze_negsampletresult = sample_results['query_neg_sets'].squeeze(1) #[4, 256, 256]<-[4, 1, 256, 256] # 5 256 256
             query_neg = (x_pro[keeps_all].reshape(-1, 256, 256, 64) * squeeze_negsampletresult.to(
                 device=x_pro[keeps_all].device).unsqueeze(3)).sum(dim=[1, 2]) / query_neg_num   # filter out features of all neg pixels in ori mask and get their feature mean
-            query_neg_set = x_pro[keeps_all][sample_results['query_neg_sets'].reshape(-1), :]    # all negative pixels' feature in x_pro
+            # 计算负采样点特征的均值
+            '''
+                x_pro[keeps_all].reshape(-1, 256, 256, 64):   [4, 256, 256, 64]<-[262144, 64]
+                squeeze_negsampletresult.to(**).unsqueeze(3)):[4, 256, 256, 1 ]<-[4, 256, 256]
+                (~ * ~).sum(dim=[1, 2]) [4, 64]<-[4, 256, 256, 64]
+                query_neg_num [4, 1]
+                query_neg: [4, 64]
+            '''
+            query_neg_set = x_pro[keeps_all][sample_results['query_neg_sets'].reshape(-1), :]
+            # xPro中的全负像素特征 all negative pixels' feature in x_pro
+            '''
+            x_pro[keeps_all]:   [262144, 64]
+            sample_results['query_neg_sets']:      [4, 1, 256, 256]
+            sample_results['query_neg_sets'].reshape(-1): [4*256*256]=[262144]
+            query_neg_set:    [<262144, 64]=[242187, 64]
+            '''
 
-            # sample sets are used to calculate loss
+            # 样本集用于计算损失 sample sets are used to calculate loss
             sample_sets['keeps_proposal'] = keeps_
+            # keeps_=[True, True, True, True] shape=[4]
 
             sample_sets['query_pos'] = query_pos.unsqueeze(1)#N,HW,C 1,1,64
+            # 正样本点特征的均值 [4, 1, 64]<-[4, 64]
             sample_sets['query_neg'] = query_neg.unsqueeze(1)
+            # 负样本点特征的均值 [4, 1, 64]<-[4, 64]
             sample_sets['query_pos_set'] = query_pos_set #N,dims
+            # 全部的正样本点特征：[19957,  64]
             sample_sets['query_neg_set'] = query_neg_set #N,dims
+            # 全部的负样本点特征：[242187, 64]
 
-            sample_sets['num_per_type'] = sample_results['num_per_type']
+            sample_sets['num_per_type'] = sample_results['num_per_type'] # 记录选取难易样本像素点的数量
 
             sample_sets['sample_easy_pos'] = sample_easy_pos # N,64   # sampled features, N is the sample num
             sample_sets['sample_easy_neg'] = sample_easy_neg
             sample_sets['sample_hard_pos'] = sample_hard_pos
             sample_sets['sample_hard_neg'] = sample_hard_neg
+            '''
+            sample_easy_pos [2000, 64]
+            sample_easy_neg [2000, 64]
+            sample_hard_pos [2000, 64]
+            sample_hard_neg [2000, 64]
+            '''
         return x, sample_sets, True
 
 

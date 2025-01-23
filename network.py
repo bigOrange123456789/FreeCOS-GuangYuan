@@ -160,9 +160,16 @@ class Single_contrast_UNet(nn.Module): # Single_contrast_UNet 单对比度UNet
                 ？
         '''
         pred, sample_set, flag = self.backbone(data,mask,trained, fake)
+        # pred：      类0-1标签的预测结果
+        # sample_set：用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
         b, c, h, w = data.shape
         pred = F.interpolate(pred, size=(h, w), mode='bilinear', align_corners=True)
-        # no use? pred is the same size as data (h,w)
+        # no use? pred is the same size as data (h,w) 没用？pred的大小与数据（h，w）相同
+        '''
+        对pred进行上采样或下采样，即改变数据的空间尺寸。
+            'bilinear'双线性插值，这是一种在二维空间中常用的插值方法，可以生成相对平滑的图像。
+            align_corners=True：输入和输出张量的角点（即左上角和右下角）会被对齐，这通常用于保持图像边角的一致性。
+        '''
 
         return pred, sample_set, flag
 

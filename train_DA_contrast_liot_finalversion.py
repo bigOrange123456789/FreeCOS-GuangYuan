@@ -65,16 +65,28 @@ def check_feature(sample_set_sup, sample_set_unsup):
 def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervised, dataloader_unsupervised,
           optimizer_l, optimizer_D, lr_policy, lrD_policy, criterion, total_iteration, average_posregion,
           average_negregion):
-    if torch.cuda.device_count() > 1:
+    '''
+    epoch,                      已完成的批次数     0
+    Segment_model,              分割模型
+    predict_Discriminator_model,判别器模型
+    dataloader_supervised,      有监督数据集
+    dataloader_unsupervised,    无监督数据集
+    optimizer_l, optimizer_D,   优化器
+    lr_policy, lrD_policy,      学习率调整的策略    <engine.lr_policy.WarmUpPolyLR>
+    criterion,                  评价标准           DiceLoss() type=<utils.loss_function.DiceLoss>
+    total_iteration,            总迭代次数         总epoch数=nepochs * niters_per_epoch
+    average_posregion,          平均正区域         torch.zeros((1, 128)),暂时不知道这个对象的作用
+    average_negregion
+    '''
+    if torch.cuda.device_count() > 1: #如果有多个CUDA
         Segment_model.module.train()
         predict_Discriminator_model.module.train()
         '''
-            _model: 模型实例。
             .module: 这个属性通常在模型被封装或复制时出现。
                 并行化处理后，原始模型会被封装在一个新的对象中，而这个新对象会有一个.module属性指向原始的模型。
             .train(): 将模型设置为训练模式。
         '''
-    else:
+    else: #将模型设置为cuda模式
         print("start_model_train")
         Segment_model.train()
         predict_Discriminator_model.train()
@@ -109,20 +121,17 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
     ''' supervised part '''
     for idx in pbar:
         current_idx = epoch * config.niters_per_epoch + idx
-        damping = (1 - current_idx / total_iteration)
+        damping = (1 - current_idx / total_iteration) # 剩余工作量(damping本意指阻尼)
         start_time = time.time()
         optimizer_l.zero_grad()
         optimizer_D.zero_grad()
         '''
-            PyTorch：它提供了强大的张量计算以及自动微分功能。
             优化器（Optimizer）：根据梯度来更新的参数。
-            梯度（Gradient）：在当前参数值处损失函数下降最快的方向。
-            反向传播（Backpropagation）：在训练神经网络时，反向传播算法用于计算损失函数关于每个参数的梯度。
+            反向传播（Backpropagation）：计算每个参数的梯度。
             -----
-            _l：这是一个优化器对象，它已经被初始化并配置为更新某个神经网络模型的参数。
             .zero_grad()：将模型参数的梯度清零。
             默认情况下，在一个迭代（batch）中多次调用反向传播，梯度会被累加。
-            因此，在每个新的迭代开始之前，你需要清零梯度，以确保当前迭代的梯度计算是从头开始的，不会受到之前迭代梯度的影响。
+            因此需要清零梯度，以确保梯度计算不会受到之前迭代梯度的影响。
         '''
         try:
             minibatch = next(dataloader) #获取一个batch的有监督数据
@@ -130,8 +139,8 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
             dataloader = iter(dataloader_supervised)
             minibatch = next(dataloader)
 
-        imgs = minibatch['img'] #imgs: [4, 4, 256, 256] #感觉每个batch应该就是4张图片
-        gts  = minibatch['anno_mask'] #gts: [4, 1, 256, 256]
+        imgs = minibatch['img']       #imgs: [4, 4, 256, 256] #每个batch有4张图片
+        gts  = minibatch['anno_mask'] #gts:  [4, 1, 256, 256]
         imgs = imgs.cuda(non_blocking=True)
         gts  = gts.cuda(non_blocking=True)
         '''
@@ -150,8 +159,11 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
             weight_mask[weight_mask == 0] = 0.1 # 值为0的元素设为0.1
             weight_mask[weight_mask == 1] = 1   # 值为1的元素保持不变
             criterion_bce = nn.BCELoss(weight=weight_mask)
-            # 并将之前修改的weight_mask作为权重参数传递给损失函数。
-            # 这意味着在计算损失时，不同类别的样本将对总损失有不同的贡献，这有助于处理类别不平衡问题。
+            '''
+                血管区域太小，背景区域太大。因此分别给这两个区域使用了不同的权重。
+                weight (Tensor, optional) : 给定到每个批次元素的损失的手动重新缩放权重。如果给定，则必须是大小为 nbatch 的张量。
+                这意味着在计算损失时，不同类别的样本将对总损失有不同的贡献，这有助于处理类别不平衡问题。
+            '''
         try: #获取一个batch的无监督数据
             unsup_minibatch = next(unsupervised_dataloader)
             # 这段代码尝试从unsupervised_dataloader迭代器中获取下一个数据批次。
@@ -168,20 +180,15 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
 
         # Start train fake vessel 开始训练假血管
         for param in predict_Discriminator_model.parameters():
-            param.requires_grad = False
-        '''
-            .parameters()：
-                返回该模型所有可训练参数的迭代器。
-            param.requires_grad = False：
-                requires_grad 指示是否需要进行梯度计算。
-                设置为 False 意味着不会在反向传播过程中计算其梯度。
-        '''
+            param.requires_grad = False #不在反向传播过程中计算其梯度。
         pred_sup_l,  sample_set_sup,   flag_sup = Segment_model(imgs, mask=gts, trained=True, fake=True)
-        loss_ce = 0.1 * criterion_bce(pred_sup_l, gts)  # For retinal :5 For XCAD:0.1 5 for crack
-        loss_dice = criterion(pred_sup_l, gts)
-        pred_target, sample_set_unsup, flag_un  = Segment_model(unsup_imgs, mask=None, trained=True, fake=False)
-        D_seg_target_out = predict_Discriminator_model(pred_target)
-        loss_adv_target = bce_loss(F.sigmoid(D_seg_target_out),
+        # pred_sup_l： 类0-1标签的预测结果
+        # sample_sets：用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
+        loss_ce = 0.1 * criterion_bce(pred_sup_l, gts) # 根据预测结果和标签计算CE损失 # retinal是5 XCAD是0.1 crack是5 # For retinal :5 For XCAD:0.1 5 for crack
+        loss_dice = criterion(pred_sup_l, gts) # 根据预测结果和标签计算Dice损失
+        pred_target, sample_set_unsup, flag_un = Segment_model(unsup_imgs, mask=None, trained=True, fake=False) #mask影响正负样本的获取
+        D_seg_target_out = predict_Discriminator_model(pred_target) #判别是否为 直线合成血管 or 曲线生成血管
+        loss_adv_target = bce_loss(F.sigmoid(D_seg_target_out), #计算对比学习的损失
                                    torch.FloatTensor(D_seg_target_out.data.size()).fill_(source_label).cuda())
         quary_feature, pos_feature, neg_feature, flag = check_feature(sample_set_sup, sample_set_unsup) ##############################
 
