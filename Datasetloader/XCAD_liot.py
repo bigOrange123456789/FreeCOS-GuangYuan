@@ -12,6 +12,7 @@ from Datasetloader.torch_LIOT import trans_liot, trans_liot_region, trans_liot_r
 #trans_list NCHW
 import cv2
 
+from config import config
 
 def low_freq_mutate_np( amp_src, amp_trg, L=0.1 ):
     a_src = np.fft.fftshift( amp_src, axes=(-2, -1) )
@@ -74,9 +75,10 @@ class DatasetXCAD_aug(data.Dataset):
         if self.supervised=='supervised':
             if self.split == 'train': # 有监督的训练
                 self.img_path = os.path.join(datapath, 'train','fake_grayvessel_width')#./Data/XCAD/train/fake_grayvessel_width #合成血管
-                self.background_path = os.path.join(datapath,'train', 'img')           #./Data/XCAD/train/img                   #真实图片
-                self.ann_path = os.path.join(datapath, 'train','fake_gtvessel_width')  #./Data/XCAD/train/fake_gtvessel_width   #合成标签
-
+                self.background_path    = os.path.join(datapath,'train', 'img')           #./Data/XCAD/train/img                   #真实图片
+                self.background_path_3D = os.path.join(datapath, 'train', 'bg_lzc')  # ./Data/XCAD/train/img
+                self.ann_path    = os.path.join(datapath, 'train','fake_gtvessel_width')  #./Data/XCAD/train/fake_gtvessel_width   #合成标签
+                self.img_path_3D = os.path.join(datapath, 'train', 'vessel3D_lzc')  # ./Data/XCAD/train/vessel3D_lzc
                 self.img_metadata        = self.load_metadata_supervised()  #train_fakevessel.txt
                 self.background_metadata = self.load_metadata_background()  #train_backvessel.txt
             else: # 有监督的测试
@@ -85,6 +87,7 @@ class DatasetXCAD_aug(data.Dataset):
                 self.img_metadata = self.load_metadata_testsupervised() #test_img.txt
         else: # 无监督的训练
             self.img_path = os.path.join(datapath, 'train','img') #./Data/XCAD/train/img
+
             self.img_metadata = self.load_metadata_background()  #train_backvessel.txt
         self.norm_img = transforms.Compose([
             transforms.ToTensor()#将数据由HWC255格式 转换为CHW0～1的格式
@@ -115,8 +118,17 @@ class DatasetXCAD_aug(data.Dataset):
         img_name = self.img_metadata[index] # get the name of fakevessel(train-supervised), img(test-supervised), img(train-unsupervised)
         if self.supervised=='supervised' and self.split == 'train': #有监督的训练
             idx_background = np.random.randint(len(self.background_metadata))  # background(train-supervised)
-            background_name = self.background_metadata[idx_background] #随机抽取一张背景图(造影图)
-            img, anno_mask, org_img_size = self.load_frame_fakevessel_gaussian(img_name, background_name)#(合成图像、合成标签)<-(合成血管图、真实造影图)
+            background_name = self.background_metadata[idx_background]  # 随机抽取一张背景图(造影图)
+            '''
+            self.background_metadata 中为 train_backvessel.txt 
+                原本是img文件夹中的子集文件名
+                但由于img文件夹与bg_lzc文件夹中的文件名是一致的，所以也可以作为bg_lzc文件夹的子集文件名
+            '''
+            if config.vessel3D:  # LZC:这部分新增的代码用于读取3D血管数据
+                img, anno_mask, org_img_size = self.load_frame_fakevessel_3D(img_name,background_name)
+                # (合成图像、合成标签)<-(合成血管图、真实造影图)
+            else: #之前的获取2D血管数据的代码
+                img, anno_mask, org_img_size = self.load_frame_fakevessel_gaussian(img_name, background_name)#(合成图像、合成标签)<-(合成血管图、真实造影图)
         elif self.supervised=='supervised' and self.split != 'train': #有监督的验证
             img, anno_mask, org_img_size = self.load_frame_aff(img_name) #返回：造影图、人工标签、尺寸
         else: #无监督的训练
@@ -345,6 +357,11 @@ class DatasetXCAD_aug(data.Dataset):
         '''
         img_FDA_guassian = img_FDA_guassian + noise_map
         img_FDA_guassian = np.clip(img_FDA_guassian, 0, 255.)
+        '''
+            img_FDA_guassian [[ ....]] 
+            type=<class 'numpy.ndarray'> 
+            shape=(512, 512)
+        '''
 
         img_FDA_Image = Image.fromarray((img_FDA_guassian).astype('uint8')).convert('L')
         '''
@@ -359,7 +376,40 @@ class DatasetXCAD_aug(data.Dataset):
 
         org_img_size = img.size
 
+
         return img_FDA_Image, anno_mask, org_img_size
+    def load_frame_fakevessel_3D(self,img_name,background_name):
+
+        img = self.read_img_3D(img_name) # 读取3D人工血管图
+        # print("img",img.size)
+        anno_mask = self.read_mask(img_name) # 读取人工血管的标签图
+        background_img = self.read_background_3D(background_name) #背景图(真实造影图) # <PIL.Image.Image>
+        # print('background_img',background_img.size)
+        # exit(0)
+
+        # 1.将血管添加到背景中：对应元素相称
+        # background_array = np.array(background_img)  #背景 <PIL.Image.Image> -> <numpy.ndarray>
+        background_array = np.asarray(background_img, np.float32)  # 背景 <PIL.Image.Image> -> <numpy.ndarray>
+        im_src = np.asarray(img, np.float32)  #血管 <PIL.Image.Image> -> <numpy.ndarray> #转换为NumPy，并且指定类型
+        background_array=background_array/255.
+        im_src          =im_src/255.
+        # 血管图后面似乎可以尝试进行高斯模糊处理
+        # print('background_array:',background_array)
+        synthetic_img = background_array*im_src
+        # print('synthetic_Image:', synthetic_Image,synthetic_Image.shape)
+        # exit(0)
+        synthetic_Image = Image.fromarray((255.*synthetic_img).astype('uint8')).convert('L')
+        org_img_size = img.size
+
+        if False:# 保存Image对象为PNG格式的图片到本地
+            print(img_name)
+            synthetic_Image.save('output_image_'+img_name+'.png')
+            exit(0)
+
+        return synthetic_Image, anno_mask, org_img_size
+        # img_FDA_Image, 数据
+        # anno_mask,     标签
+        # org_img_size   维度
 
     def load_frame_fakevessel_gaussian_intensity(self,img_name,background_name): #这个函数似乎没有被调用
         img = self.read_img(img_name)
@@ -470,9 +520,14 @@ class DatasetXCAD_aug(data.Dataset):
     def read_img(self, img_name):
         # maybe png
         return Image.open(os.path.join(self.img_path, img_name)).convert('L')
+    def read_img_3D(self, img_name):
+        # maybe png
+        return Image.open(os.path.join(self.img_path_3D, img_name)).convert('L')
 
     def read_background(self,img_name):
         return Image.open(os.path.join(self.background_path, img_name)).convert('L')
+    def read_background_3D(self,img_name):
+        return Image.open(os.path.join(self.background_path_3D, img_name)).convert('L')
 
     def load_metadata(self):
         if self.split == 'train':

@@ -66,6 +66,8 @@ C.bn_momentum = 0.1
 
 C.cps_weight = 6
 
+''' Our New Setting(我们自己的设置) '''
+C.vessel3D = True
 
 """Image Config"""
 C.num_classes = 1
