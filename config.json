@@ -2,9 +2,7 @@
     "seed": 12345,
     "vessel3D": true,
     "datapath": "../DataSet-images/XCAD_FreeCOS",
-    "datapath_old2": "../Dataset/XCAD",
-    "datapath_old": "./Data/XCAD",
-
-    "version": "2025.01.24--20:19",
-    "冗余测试": ["Python", "Java", "C++"]
+    "datapath_old": ["../Dataset/XCAD","./Data/XCAD"],
+    "logname":"test_XCADmodel",
+    "version": "2025.01.25--14:00"
 }

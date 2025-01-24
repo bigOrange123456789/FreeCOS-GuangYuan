@@ -149,7 +149,7 @@ class Single_contrast_UNet(nn.Module): # Single_contrast_UNet 单对比度UNet
         self.business_layer = []
         self.business_layer.append(self.backbone)
 
-    def forward(self, data,mask=None,trained=True, fake=True):
+    def forward(self, data,mask=None,trained=True, fake=True): # fake=T/F -> masks真标签/预测标签
         '''
             mask=None：
                 数据标签。
@@ -157,7 +157,9 @@ class Single_contrast_UNet(nn.Module): # Single_contrast_UNet 单对比度UNet
                 这个参数可能用于控制模型是否处于训练模式。
                 在某些情况下，模型在训练时的行为（如dropout和批量归一化）与在评估或推理时的行为不同。
             fake=True：
-                ？
+                fake的含义是区分 真实血管/合成血管
+                fake=T/F -> masks真标签/预测标签
+                因为fake只影响对比学习，所以只在训练时有用、在评估时没用。
         '''
         pred, sample_set, flag = self.backbone(data,mask,trained, fake)
         # pred：      类0-1标签的预测结果

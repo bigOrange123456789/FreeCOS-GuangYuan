@@ -107,7 +107,7 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
                 并行化处理后，原始模型会被封装在一个新的对象中，而这个新对象会有一个.module属性指向原始的模型。
             .train(): 将模型设置为训练模式。
         '''
-    else: #将模型设置为cuda模式
+    else: #将模型设置为训练模式
         print("start_model_train")
         Segment_model.train()
         predict_Discriminator_model.train()
@@ -201,7 +201,7 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
 
         # Start train fake vessel 开始训练假血管
         for param in predict_Discriminator_model.parameters():
-            param.requires_grad = False #不在反向传播过程中计算其梯度。
+            param.requires_grad = False #首先优化分割器、不优化判别器
         pred_sup_l,  sample_set_sup,   flag_sup = Segment_model(imgs, mask=gts, trained=True, fake=True)
         # pred_sup_l： 类0-1标签的预测结果
         # sample_sets：用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
@@ -240,12 +240,9 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
         sum_contrastloss += loss_contrast_sum #(本次的epoch的)加权后的对比损失
 
         loss_adv = (loss_adv_target * damping) / 4 + loss_dice + loss_ce + weight_contrast * (loss_contrast) #对抗+监督+对比
-        loss_adv.backward(retain_graph=False)
+        loss_adv.backward(retain_graph=False) # #计算分割网络参数的梯度,并累加到网络参数的.grad属性中
         '''
-            .backward()：用于根据损失函数计算模型中所有可训练参数的梯度。
-                在执行这一步之前，PyTorch会先清除之前计算的所有梯度（除非你设置了特定的参数来保留它们）。
-                .backward()方法会基于链式法则自动计算损失函数关于每个参数的梯度，并将这些梯度存储在相应参数的.grad属性中。
-            retain_graph=False：这是.backward()方法的一个参数。
+            retain_graph=False：
                 在默认情况下（即retain_graph=False），在计算完梯度后会释放用于计算梯度的计算图（graph）。
                 这对于大多数情况来说已经足够了，因为每次参数更新后，我们通常都会重新计算损失和梯度。
                 如果在同一个计算图中进行多次反向传播，设置retain_graph=True来保留计算图。
@@ -255,9 +252,9 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
 
         sum_celoss += loss_ce #(本次的epoch的)CE损失
         sum_diceloss += loss_dice.item() #(本次的epoch的)DICE损失
-        for param in predict_Discriminator_model.parameters():
+        for param in predict_Discriminator_model.parameters(): # 开启判别器的优化
             param.requires_grad = True #将判别器中的参数设置为需要计算梯度
-        pred_sup_l = pred_sup_l.detach()
+        pred_sup_l = pred_sup_l.detach() #这样可以确保接下来不优化分割器
         # pred_sup_l： 类0-1标签的预测结果 shape=[4, 1, 256, 256]
         '''
             .detach()：这是PyTorch张量的一个方法，它的作用是创建一个新的张量，这个新张量与原始张量共享数据但不共享梯度历史。
@@ -266,35 +263,36 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
         '''
         D_out_src = predict_Discriminator_model(pred_sup_l) #D_out_src.shape=[4, 1, 8, 8]
 
-        loss_D_src = bce_loss(F.sigmoid(D_out_src),
+        loss_D_src = bce_loss(F.sigmoid(D_out_src), #判别器的目标：有监督合成图片->源数据域
                               torch.FloatTensor(D_out_src.data.size()).fill_(source_label).cuda())
-        loss_D_src = loss_D_src / 8
-        loss_D_src.backward(retain_graph=False)
-        sum_Dsrc_loss += loss_D_src.item()
+        loss_D_src = loss_D_src / 8 #损失函数加权
+        loss_D_src.backward(retain_graph=False) #计算判别器参数的梯度,并累加到网络参数的.grad属性中
+        sum_Dsrc_loss += loss_D_src.item() #(本次的epoch的)源数据域 判决器损失
 
         pred_target = pred_target.detach()
-        D_out_tar = predict_Discriminator_model(pred_target)
+        D_out_tar = predict_Discriminator_model(pred_target) # 判别 无监督真实图片
 
         loss_D_tar = bce_loss(F.sigmoid(D_out_tar), torch.FloatTensor(
-            D_out_tar.data.size()).fill_(target_label).cuda())
-        loss_D_tar = loss_D_tar / 8  # bias
-        loss_D_tar.backward(retain_graph=False)
-        sum_Dtar_loss += loss_D_tar.item()
-        optimizer_l.step()
-        optimizer_D.step()
+            D_out_tar.data.size()).fill_(target_label).cuda()) # 判别器的目标：无监督真实图片->目标数据域
+        loss_D_tar = loss_D_tar / 8  # bias #损失函数加权
+        loss_D_tar.backward(retain_graph=False) #计算判别器参数的梯度,并累加到网络参数的.grad属性中
+        sum_Dtar_loss += loss_D_tar.item() #(本次的epoch的)目标数据域 判别器损失
+        optimizer_l.step() # 根据梯度更新分割器的参数
+        optimizer_D.step() # 根据梯度更新判别器的参数
 
-        lr = lr_policy.get_lr(current_idx)  # lr change
-        optimizer_l.param_groups[0]['lr'] = lr
-        optimizer_l.param_groups[1]['lr'] = lr
+        # lr_policy, lrD_policy,      学习率调整的策略    <engine.lr_policy.WarmUpPolyLR>
+        lr = lr_policy.get_lr(current_idx)  # lr change #调整学习率
+        optimizer_l.param_groups[0]['lr'] = lr #分割网络
+        optimizer_l.param_groups[1]['lr'] = lr #BN
         # for i in range(2, len(optimizer_l.param_groups)):   没用
         #     optimizer_l.param_groups[i]['lr'] = lr
 
         Lr_D = lrD_policy.get_lr(current_idx)
-        optimizer_D.param_groups[0]['lr'] = Lr_D
+        optimizer_D.param_groups[0]['lr'] = Lr_D #判别器
         # for i in range(2, len(optimizer_D.param_groups)):  没用
         #     optimizer_D.param_groups[i]['lr'] = Lr_D
 
-        sum_contrastloss += loss_contrast_sum
+        sum_contrastloss += loss_contrast_sum #(本次的epoch的)对比损失
         print_str = 'Epoch{}/{}'.format(epoch, config.nepochs) \
                     + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
                     + ' lr=%.2e' % lr \
@@ -302,35 +300,44 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
                     + ' loss_D_tar=%.4f' % loss_D_tar.item() \
                     + ' loss_D_src=%.4f' % loss_D_src.item() \
                     + ' loss_adv=%.4f' % loss_adv.item() \
-                    + 'loss_ce=%.4f' % loss_ce \
-                    + 'loss_dice=%.4f' % loss_dice.item() \
-                    + 'loss_contrast=%.4f' % loss_contrast_sum
+                    + ' loss_ce=%.4f' % loss_ce \
+                    + ' loss_dice=%.4f' % loss_dice.item() \
+                    + ' loss_contrast=%.4f' % loss_contrast_sum
+        pbar.set_description(print_str, refresh=False) # 输出本batch的各项损失
 
         sum_totalloss = sum_totalloss + sum_Dtar_loss + sum_Dsrc_loss + sum_adv_loss + sum_loss_seg + sum_contrastloss
-        pbar.set_description(print_str, refresh=False)
+        # 这个单batch的总损失在计算后没有被使用
+
 
         end_time = time.time()
 
-    train_loss_seg = sum_loss_seg / len(pbar)
-    train_loss_Dtar = sum_Dtar_loss / len(pbar)
-    train_loss_Dsrc = sum_Dsrc_loss / len(pbar)
-    train_loss_adv = sum_adv_loss / len(pbar)
-    train_loss_ce = sum_celoss / len(pbar)
-    train_loss_dice = sum_diceloss / len(pbar)
-    train_loss_contrast = sum_contrastloss / len(pbar)
+    train_loss_seg = sum_loss_seg / len(pbar)           #伪监督(CE+DICE)
+    train_loss_Dtar = sum_Dtar_loss / len(pbar)         #判别器-合成目标数据
+    train_loss_Dsrc = sum_Dsrc_loss / len(pbar)         #判别器-合成源数据
+    train_loss_adv = sum_adv_loss / len(pbar)           #对抗
+    train_loss_ce = sum_celoss / len(pbar)              #CE
+    train_loss_dice = sum_diceloss / len(pbar)          #DICE
+    train_loss_contrast = sum_contrastloss / len(pbar)  #对比
     train_total_loss = train_loss_seg + train_loss_Dtar + train_loss_Dsrc + train_loss_adv + train_loss_contrast
     return train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss, train_loss_dice, train_loss_ce, train_loss_contrast, average_posregion, average_negregion
 
 
 # evaluate(epoch, model, dataloader_val,criterion,criterion_consist)
 def evaluate(epoch, Segment_model, predict_Discriminator_model, val_target_loader, criterion):
+    '''
+    epoch,                      已完成的批次数     0
+    Segment_model,              分割模型
+    predict_Discriminator_model,判别器模型
+    val_target_loader,          验证集加载器
+    criterion,                  评价标准           DiceLoss() type=<utils.loss_function.DiceLoss>
+    '''
     if torch.cuda.device_count() > 1:
         Segment_model.module.eval()
         predict_Discriminator_model.module.eval()
-    else:
+    else:#将模型设置为评价模式
         Segment_model.eval()
         predict_Discriminator_model.eval()
-    with torch.no_grad():
+    with torch.no_grad(): #不进行梯度计算
         val_sum_loss_sup = 0
         val_sum_f1 = 0
         val_sum_pr = 0
@@ -344,16 +351,21 @@ def evaluate(epoch, Segment_model, predict_Discriminator_model, val_target_loade
         ''' supervised part '''
         for val_idx, minibatch in enumerate(val_target_loader):
             start_time = time.time()
-            val_imgs = minibatch['img']
-            val_gts = minibatch['anno_mask']
+            val_imgs = minibatch['img']     #图片数据
+            val_gts = minibatch['anno_mask']#手工标签
             val_imgs = val_imgs.cuda(non_blocking=True)
             val_gts = val_gts.cuda(non_blocking=True)
             # NCHW
             val_pred_sup_l, sample_set_unsup, _ = Segment_model(val_imgs, mask=None, trained=False, fake=False)
+            '''
+            fake的含义是区分 真实血管/合成血管
+                fake=T/F -> masks真标签/预测标签
+                因为fake只影响对比学习，所以只在训练时有用、在评估时没用。
+            '''
 
             max_l = torch.where(val_pred_sup_l >= 0.5, 1, 0)
-            val_max_l = max_l.float()
-            val_loss_sup = criterion(val_pred_sup_l, val_gts)
+            val_max_l = max_l.float() # 1.<-1; 0.<-0;
+            val_loss_sup = criterion(val_pred_sup_l, val_gts) #监督损失
 
             current_validx = epoch * config.niters_per_epoch + val_idx
             val_loss = val_loss_sup
@@ -432,8 +444,9 @@ def main():
 
     # define and init the model # 定义并初始化模型
     # Single or not single # 单个或非单个
-    BatchNorm2d = nn.BatchNorm2d # <BatchNorm2d>
+    BatchNorm2d = nn.BatchNorm2d # <BatchNorm2d> #BN会重置均值和方差，新的均值和新的方差都是可学习的参数
     Segment_model = Single_contrast_UNet(4, config.num_classes) # config.num_classes=1
+    # 我猜BN不放在Segment_model中的原因是：训练和评估这两种模式在使用的时候会有差异
 
     init_weight(Segment_model.business_layer, nn.init.kaiming_normal_,
                 # nn.init.kaiming_normal_: <function kaiming_normal_>
@@ -447,13 +460,13 @@ def main():
 
     params_list_l = []
     params_list_l = group_weight(
-        params_list_l, #一个list对象，内部的成员为tensor对象
+        params_list_l, #一个list对象 #用于存储tensor对象
         Segment_model.backbone, # 分割网络的主干
         BatchNorm2d,    # BatchNorm2d: <class 'torch.nn.modules.batchnorm.BatchNorm2d'>
         base_lr)        # base_lr: 0.01
     # optimizer for segmentation_L   # 分割优化器_L
     print("config.weight_decay", config.weight_decay)
-    optimizer_l = torch.optim.SGD(params_list_l,
+    optimizer_l = torch.optim.SGD(params_list_l,#分割网络中的全部参数
                                   lr=base_lr,
                                   momentum=config.momentum,
                                   weight_decay=config.weight_decay)
@@ -462,7 +475,7 @@ def main():
     init_weight(predict_Discriminator_model, nn.init.kaiming_normal_,
                 BatchNorm2d, config.bn_eps, config.bn_momentum,
                 mode='fan_in', nonlinearity='relu')
-    optimizer_D = torch.optim.Adam(predict_Discriminator_model.parameters(),
+    optimizer_D = torch.optim.Adam(predict_Discriminator_model.parameters(),#判别器中的全部参数
                                    lr=base_lr_D, betas=(0.9, 0.99))
 
     # config lr policy
@@ -499,7 +512,7 @@ def main():
     val_score_path = os.path.join('logs', config.logname + '.log') + '/' + 'val_train_f1.csv'
     csv_head = ["epoch", "total_loss", "f1", "AUC", "pr", "recall", "Acc", "Sp", "JC"]
     create_csv(val_score_path, csv_head)
-    for epoch in range(config.state_epoch, config.nepochs): #按照预先设定的回合数量执行，似乎不会提前中止
+    for epoch in range(config.state_epoch, config.nepochs): #从state_epoch到nepochs-1 # 按照预先设定的回合数量执行，不会提前中止
         # train_loss_sup, train_loss_consis, train_total_loss
         train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss, train_loss_dice, train_loss_ce, train_loss_contrast, average_posregion, average_negregion \
             = train(#训练
@@ -507,8 +520,7 @@ def main():
                 optimizer_l, optimizer_D, lr_policy, lrD_policy, criterion, total_iteration, average_posregion,
                 average_negregion)
         print("train_seg_loss:{},train_loss_Dtar:{},train_loss_Dsrc:{},train_loss_adv:{},train_total_loss:{},train_loss_contrast:{}".format(
-                train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss,
-                train_loss_contrast))
+                train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss,train_loss_contrast))
         print("train_loss_dice:{},train_loss_ce:{}".format(train_loss_dice, train_loss_ce))
         # val_mean_f1, val_mean_pr, val_mean_re, val_mean_f1, val_mean_pr, val_mean_re,val_loss_sup
         val_mean_f1, val_mean_AUC, val_mean_pr, val_mean_re, val_mean_acc, val_mean_sp, val_mean_jc, val_loss_sup \
@@ -524,11 +536,11 @@ def main():
         print("val_mean_pr",  val_mean_pr.item())
         print("val_mean_re",  val_mean_re.item())
         print("val_mean_acc", val_mean_acc.item())
-        write_csv(val_score_path, data_row_f1score)
-        if val_mean_f1 > best_val_f1:
+        write_csv(val_score_path, data_row_f1score) # 保存在验证集下的实验结果
+        if val_mean_f1 > best_val_f1: # F1分数是精确率和召回率的调和平均数
             best_val_f1 = val_mean_f1
-            Logger.save_model_f1_S(Segment_model, epoch, val_mean_f1, optimizer_l)
-            Logger.save_model_f1_T(predict_Discriminator_model, epoch, val_mean_f1, optimizer_D)
+            Logger.save_model_f1_S(Segment_model, epoch, val_mean_f1, optimizer_l) #保存到best_Segment.pt中
+            Logger.save_model_f1_T(predict_Discriminator_model, epoch, val_mean_f1, optimizer_D) #保存到best_Dis.pt中
         # if val_mean_AUC > best_val_AUC:
         #     best_val_AUC = val_mean_AUC
         #     Logger.save_model_f1_S(Segment_model, epoch, val_mean_AUC, optimizer_l)

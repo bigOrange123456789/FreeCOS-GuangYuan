@@ -34,7 +34,7 @@ else:
 C.repo_name = 'TorchSemiSeg'
 C.datapath = C_["datapath"] #"./Data/XCAD"
 C.benchmark = 'XCAD_LIOT'#XCAD_LIOT
-C.logname = 'test_XCADmodel'
+C.logname = C_["logname"] #'test_XCADmodel'
 #next experiment memory
 C.log_dir = "/data/sty/Unsupervised_dxh"
 exp_time = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())
