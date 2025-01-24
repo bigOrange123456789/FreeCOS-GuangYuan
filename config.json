@@ -1,0 +1,9 @@
+{
+    "seed": 12345,
+    "vessel3D": true,
+    "datapath": "../Dataset/XCAD",
+    "datapath_old": "./Data/XCAD",
+
+    "version": "2025.01.24--20:19",
+    "冗余测试": ["Python", "Java", "C++"]
+}

@@ -209,6 +209,8 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
         loss_dice = criterion(pred_sup_l, gts) # 根据预测结果和标签计算Dice损失
         pred_target, sample_set_unsup, flag_un = Segment_model(unsup_imgs, mask=None, trained=True, fake=False) #mask影响正负样本的获取
         D_seg_target_out = predict_Discriminator_model(pred_target) #计算对抗损失 #判别是否为 直线合成血管 or 曲线标注血管
+        # pred_target      shape=[4, 1, 256, 256]
+        # D_seg_target_out shape=[4, 1, 8, 8]
         loss_adv_target = bce_loss(F.sigmoid(D_seg_target_out), #无监督曲线标注血管的预测结果
                                    torch.FloatTensor(D_seg_target_out.data.size()).fill_(source_label).cuda())
         quary_feature, pos_feature, neg_feature, flag = check_feature(sample_set_sup, sample_set_unsup)
@@ -224,25 +226,47 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
 
         if flag:
             loss_contrast = criterion_contrast(quary_feature, pos_feature, neg_feature)
+            '''
+                quary_feature: 合成图像 全部易正样本的特征 [<=2000, 64]=[2000, 64]       ->len=579 (这里的正样本成对使用)
+                pos_feature:   真实图像 全部易正样本的特征 [<=2000, 64]=[579,  64]       ->len=579 
+                neg_feature:   合成和真实的图像 部分易负样本的特征 [<=500, 64]=[462, 64]   ->len=462
+            '''
         else:
             loss_contrast = 0
-        weight_contrast = 0.04  # 0.04 for NCE allpixel/0.01maybe same as dice
-        loss_seg = loss_dice + loss_ce
-        sum_loss_seg += loss_seg.item()
-        loss_contrast_sum = weight_contrast * (loss_contrast)
-        sum_contrastloss += loss_contrast_sum
+        weight_contrast = 0.04  #对比损失的权重 # 0.04 for NCE allpixel/0.01maybe same as dice
+        loss_seg = loss_dice + loss_ce #(当前batch的)伪监督损失
+        sum_loss_seg += loss_seg.item() #(本次的epoch的)伪监督损失
+        loss_contrast_sum = weight_contrast * (loss_contrast) #(当前batch的)加权后的对比损失
+        sum_contrastloss += loss_contrast_sum #(本次的epoch的)加权后的对比损失
 
-        loss_adv = (loss_adv_target * damping) / 4 + loss_dice + loss_ce + weight_contrast * (loss_contrast)
+        loss_adv = (loss_adv_target * damping) / 4 + loss_dice + loss_ce + weight_contrast * (loss_contrast) #对抗+监督+对比
         loss_adv.backward(retain_graph=False)
-        loss_adv_sum = (loss_adv_target * damping) / 4
-        sum_adv_loss += loss_adv_sum.item()
+        '''
+            .backward()：用于根据损失函数计算模型中所有可训练参数的梯度。
+                在执行这一步之前，PyTorch会先清除之前计算的所有梯度（除非你设置了特定的参数来保留它们）。
+                .backward()方法会基于链式法则自动计算损失函数关于每个参数的梯度，并将这些梯度存储在相应参数的.grad属性中。
+            retain_graph=False：这是.backward()方法的一个参数。
+                在默认情况下（即retain_graph=False），在计算完梯度后会释放用于计算梯度的计算图（graph）。
+                这对于大多数情况来说已经足够了，因为每次参数更新后，我们通常都会重新计算损失和梯度。
+                如果在同一个计算图中进行多次反向传播，设置retain_graph=True来保留计算图。
+        '''
+        loss_adv_sum = (loss_adv_target * damping) / 4 #(当前batch的)对抗损失
+        sum_adv_loss += loss_adv_sum.item() #(本次的epoch的)对抗损失
 
-        sum_celoss += loss_ce
-        sum_diceloss += loss_dice.item()
+        sum_celoss += loss_ce #(本次的epoch的)CE损失
+        sum_diceloss += loss_dice.item() #(本次的epoch的)DICE损失
         for param in predict_Discriminator_model.parameters():
-            param.requires_grad = True
+            param.requires_grad = True #将判别器中的参数设置为需要计算梯度
         pred_sup_l = pred_sup_l.detach()
-        D_out_src = predict_Discriminator_model(pred_sup_l)
+        # pred_sup_l： 类0-1标签的预测结果 shape=[4, 1, 256, 256]
+        '''
+            .detach()：这是PyTorch张量的一个方法，它的作用是创建一个新的张量，这个新张量与原始张量共享数据但不共享梯度历史。
+            换句话说，.detach()方法会“分离”出原始张量的一个副本，这个副本在自动微分过程中不会被考虑用于梯度计算。
+            这通常用于当你想要使用张量的值但不希望其梯度影响反向传播时。
+        '''
+        D_out_src = predict_Discriminator_model(pred_sup_l) #D_out_src.shape=[4, 1, 8, 8]
+        print('D_out_src',D_out_src.shape)
+        exit(0)
 
         loss_D_src = bce_loss(F.sigmoid(D_out_src),
                               torch.FloatTensor(D_out_src.data.size()).fill_(source_label).cuda())

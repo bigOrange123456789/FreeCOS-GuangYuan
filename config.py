@@ -10,11 +10,19 @@ import time
 import numpy as np
 from easydict import EasyDict as edict
 
+import sys
+import json
+json_file_path = 'config.json'
+# if len(sys.argv) > 1:
+#     json_file_path = sys.argv[1]
+# print('json_file_path:', json_file_path)
+C_ = json.load(open(json_file_path, 'r', encoding='utf-8') )
+
 C = edict()
 config = C
 cfg = C
 
-C.seed = 12345  #3407
+C.seed = C_['seed']#12345  #3407
 
 # remoteip = os.popen('pwd').read()
 if os.getenv('volna') is not None:
@@ -24,7 +32,7 @@ else:
 
 """please config ROOT_dir and user when u first using"""
 C.repo_name = 'TorchSemiSeg'
-C.datapath = "./Data/XCAD"
+C.datapath = C_["datapath"] #"./Data/XCAD"
 C.benchmark = 'XCAD_LIOT'#XCAD_LIOT
 C.logname = 'test_XCADmodel'
 #next experiment memory
@@ -67,7 +75,7 @@ C.bn_momentum = 0.1
 C.cps_weight = 6
 
 ''' Our New Setting(我们自己的设置) '''
-C.vessel3D = True
+C.vessel3D = C_["vessel3D"]
 
 """Image Config"""
 C.num_classes = 1
