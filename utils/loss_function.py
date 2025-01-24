@@ -310,8 +310,10 @@ class Symmetruc_MSE(nn.Module):
 class InfoNCE(nn.Module):
     """
     Calculates the InfoNCE loss for self-supervised learning.
+    计算自监督学习的InfoNCE损失。
     This contrastive loss enforces the embeddings of similar (positive) samples to be close
         and those of different (negative) samples to be distant.
+    这种对比损失使得相似（阳性）样本的嵌入变得紧密，而不同（阴性）样本的嵌入式变得遥远。
     A query embedding is compared with one positive key and with one or more negative keys.
     References:
         https://arxiv.org/abs/1807.03748v2
@@ -323,15 +325,22 @@ class InfoNCE(nn.Module):
             See torch.nn.functional.cross_entropy for more details about each option.
         negative_mode: Determines how the (optional) negative_keys are handled.
             Value must be one of ['paired', 'unpaired'].
+            值必须是['成对'、'不成对]]之一。
             If 'paired', then each query sample is paired with a number of negative keys.
+            如果“配对”，则每个查询样本都与多个负键配对。
             Comparable to a triplet loss, but with multiple negatives per sample.
+            与三重态损失相当，但每个样本都有多个阴性。
             If 'unpaired', then the set of negative keys are all unrelated to any positive key.
+            如果“未配对”，则该组负键都与任何正键无关。
     Input shape:
         query: (N, D) Tensor with query samples (e.g. embeddings of the input).
         positive_key: (N, D) Tensor with positive samples (e.g. embeddings of augmented input).
         negative_keys (optional): Tensor with negative samples (e.g. embeddings of other inputs)
+        negative_keys（可选）：具有负样本的张量（例如其他输入的嵌入）
             If negative_mode = 'paired', then negative_keys is a (N, M, D) Tensor.
+            如果negative_mode='paid'，那么negative_keys是一个（N，M，D）张量。
             If negative_mode = 'unpaired', then negative_keys is a (M, D) Tensor.
+            如果negative_mode='unpaid'，那么negative_keys是一个（M，D）张量。
             If None, then the negative keys for a sample are the positive keys for the other samples.
     Returns:
          Value of the InfoNCE Loss.
@@ -358,9 +367,10 @@ class InfoNCE(nn.Module):
 
 
 def info_nce(query, positive_key, negative_keys=None, temperature=0.1, reduction='mean', negative_mode='unpaired'):
-    # Change the data dimsion
+    # Change the data dimsion 更改数据分辨率
 
-    # Check input dimensionality.
+    # negative_mode=unpaired
+    # Check input dimensionality. 检查输入维度。
     if query.dim() != 2:
         raise ValueError('<query> must have 2 dimensions.')
     if positive_key.dim() != 2:
@@ -386,18 +396,29 @@ def info_nce(query, positive_key, negative_keys=None, temperature=0.1, reduction
             raise ValueError('Vectors of <query> and <negative_keys> should have the same number of components.')
 
     # Normalize to unit vectors
-    query, positive_key, negative_keys = normalize(query, positive_key, negative_keys)
-    if negative_keys is not None:
+    query, positive_key, negative_keys = normalize(query, positive_key, negative_keys) #让每个采样特征的向量模都为1
+    if negative_keys is not None: #如果负样本集不是空
         # Explicit negative keys
 
-        # Cosine between positive pairs
+        # Cosine between positive pairs 计算正样本对的特征向量乘积 # N_q , 1
         positive_logit = torch.sum(query * positive_key, dim=1, keepdim=True)
-        # N_q , 1
+        '''
+        query.shape = [579, 64])
+        positive_key.shape = [579, 64]
+        positive_logit.shape=[579, 1]
+        '''
 
         if negative_mode == 'unpaired':
-            # Cosine between all query-negative combinations
+            # Cosine between all query-negative combinations # [N_q N_neg]
             negative_logits = query @ transpose(negative_keys)
-            # [N_q N_neg]
+            '''
+                query.shape = [579, 64]
+                negative_keys.shape = [462, 64]
+                negative_logits.shape=[579,462]
+                
+                @         ：矩阵乘法
+                transpose ： 矩阵转置
+            '''
 
         elif negative_mode == 'paired':
             query = query.unsqueeze(1)
@@ -406,9 +427,9 @@ def info_nce(query, positive_key, negative_keys=None, temperature=0.1, reduction
 
         # First index in last dimension are the positive samples
         logits = torch.cat([positive_logit, negative_logits], dim=1)
-        labels = torch.zeros(len(logits), dtype=torch.long, device=query.device)
-        # print("labels",labels.shape)
-        # print("logits",logits.shape)
+        # [579,463]=[579, 1]+[579,462]
+        labels = torch.zeros(len(logits), dtype=torch.long, device=query.device) #.shape=[579]
+
     else:
         # Negative keys are implicitly off-diagonal positive keys.
 
@@ -418,7 +439,9 @@ def info_nce(query, positive_key, negative_keys=None, temperature=0.1, reduction
         # Positive keys are the entries on the diagonal
         labels = torch.arange(len(query), device=query.device)
 
+    # (logits / temperature).shape=[579, 463]
     return F.cross_entropy(logits / temperature, labels, reduction=reduction)
+    # reduction有两种选择mean、sum，这里应该是mean
 
 
 def transpose(x):
@@ -427,6 +450,12 @@ def transpose(x):
 
 def normalize(*xs):
     return [None if x is None else F.normalize(x, dim=-1) for x in xs]
+    '''
+    遍历xs，对每个元素x执行一个条件操作。
+        如果x是None，则表达式的结果也是None。
+        如果x不是None，则对x应用F.normalize(x, dim=-1)函数。
+    F.normalize函数用于对输入张量x进行L2归一化处理，使得x在每个样本的最后一个维度（dim=-1）上的范数为1。
+    '''
 
 # def INFOloss(query, pos_sets, neg_sets, tem):
 #     ''' Dense INFOloss (pixel-wise)
@@ -476,10 +505,16 @@ class ContrastRegionloss_quaryrepeatNCE(nn.Module):
         self.infonceloss = InfoNCE()
 
     def forward(self, quary, pos_feature, neg_feature):
+        '''
+        quary_feature: 合成图像 全部易正样本的特征 [<=2000, 64]=[2000, 64]       len=2000
+        pos_feature:   真实图像 全部易正样本的特征 [<=2000, 64]=[579,  64]       len=579
+        neg_feature:   合成和真实的图像 部分易负样本的特征 [<=500, 64]=[462, 64]   len=462
+        '''
         if len(quary)>=len(pos_feature):
             quary = quary[:len(pos_feature),:]
         else:
             pos_feature = pos_feature[:len(quary),:]
+        # 合成图像与真实图像 使用的易正样本数量要保持一致
         return self.infonceloss(quary, pos_feature, neg_feature)
 
 

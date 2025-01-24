@@ -33,3 +33,8 @@ Thanks for your attention!
 If you have any suggestion or question, you can leave a message here or contact us directly:
 - shitianyihust@hust.edu.cn
 - shitianyihust@126.com
+########################################################
+idea1:(1)改为3D血管合成；(2)如何合成弯曲血管；
+idea2:(1)添加EMA，并使用一致性学习；(2)使用双解码器；
+idea3:感觉这里对抗学习在逻辑上有问题，解决掉这种不适感
+idea4:(1)使用傅里叶变换进行域迁移。(2)找出主方向。频率的主方向、是否对应树形结构的上下。

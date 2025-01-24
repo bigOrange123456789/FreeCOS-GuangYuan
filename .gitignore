@@ -12,6 +12,8 @@
 /Data/XCAD/fake_very_smalltheta/
 /Data/XCAD/train/fake_grayvessel_width/
 /Data/XCAD/train/fake_gtvessel_width/
+/Data/XCAD/train/bg_lzc/
+/Data/XCAD/train/vessel3D_lzc/
 /Data/XCAD/train/img/
 /Data/XCAD/test/
 /Data/XCAD/work_vessel.eps

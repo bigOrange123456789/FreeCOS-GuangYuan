@@ -38,29 +38,50 @@ def write_csv(path, data_row):
 
 def check_feature(sample_set_sup, sample_set_unsup):
     """
+    sample_sets_sup：  有监督合成图片用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
+    sample_sets_unsup：无监督真实图片用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
     feature N,dims，Has bug or debuff because of zeros
     """
     flag = True
     Single = False
     queue_len = 500
     # sample_set_sup['sample_easy_pos'], sample_set_sup['sample_easy_neg'], sample_set_unsup['sample_easy_pos'], sample_set_unsup['sample_easy_neg']
-    with torch.no_grad():
-        if 'sample_easy_pos' not in sample_set_sup.keys() or 'sample_easy_neg' not in sample_set_unsup.keys() or 'sample_easy_pos' not in sample_set_unsup.keys():
+    with torch.no_grad(): #不进行梯度计算
+        if (    'sample_easy_pos' not in sample_set_sup.keys() or
+                'sample_easy_neg' not in sample_set_unsup.keys() or
+                'sample_easy_pos' not in sample_set_unsup.keys()):
             flag = False
             quary_feature = None
             pos_feature = None
             neg_feature = None
         else:
-            quary_feature = sample_set_sup['sample_easy_pos']
-            pos_feature = sample_set_unsup['sample_easy_pos']
+            quary_feature = sample_set_sup['sample_easy_pos']   #合成图像 全部易正样本的特征
+            pos_feature   = sample_set_unsup['sample_easy_pos'] #真实图像 全部易正样本的特征
             flag = True
+            '''
+                sample_easy_pos [2000, 64]
+                quary_feature.shape=[2000, 64]
+                pos_feature.shape  =[579,  64] 真实图像中血管所占的像素数量可能过少？
+            '''
 
         if 'sample_easy_neg' in sample_set_sup.keys() and 'sample_easy_neg' in sample_set_unsup.keys():
-            neg_unlabel = sample_set_unsup['sample_easy_neg']
-            neg_label = sample_set_sup['sample_easy_neg']
+            neg_unlabel = sample_set_unsup['sample_easy_neg'] #合成图像 全部易负样本的特征 #shape=[212, 64] #合成图像中的背景像素过少？
+            neg_label   = sample_set_sup['sample_easy_neg']   #真实图像 全部易负样本的特征 #shape=[2000, 64]
+
             neg_feature = torch.cat((neg_unlabel[:min(queue_len // 2, neg_unlabel.shape[0]), :],
                                      neg_label[:min(queue_len // 2, neg_label.shape[0]), :]), dim=0)
+            # neg_feature.shape:[212+250,64]=[462, 64]
+            '''
+            负样本特征,形状是(N, D)，其中N是样本数量，D是特征维度。
+            queue_len：这是一个预先定义的变量，代表想要拼接的张量的最大长度。
+            min(queue_len // 2, neg_unlabel.shape[0])：要取出的最大样本数量。
+            沿着第0维拼接起来，但拼接的数量受到queue_len的限制。
+            '''
     return quary_feature, pos_feature, neg_feature, flag
+    # quary_feature: 合成图像 全部易正样本的特征 [<=2000, 64]=[2000, 64]
+    # pos_feature:   真实图像 全部易正样本的特征 [<=2000, 64]=[579,  64]
+    # neg_feature:   合成和真实的图像 部分易负样本的特征 [<=500, 64]=[462, 64]
+
 
 def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervised, dataloader_unsupervised,
           optimizer_l, optimizer_D, lr_policy, lrD_policy, criterion, total_iteration, average_posregion,
@@ -114,8 +135,8 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
     sum_contrastloss = 0
     sum_celoss = 0
     sum_diceloss = 0
-    source_label = 0
-    target_label = 1
+    source_label = 0 # 源数据域:合成血管 #用于对抗学习，源数据域的标签
+    target_label = 1 #目标数据域:真实血管 #对抗学习的目的是让神经网络能够屏蔽数据域的差异，让两个数据域都能输出正确的结果
     criterion_contrast = ContrastRegionloss_quaryrepeatNCE()
     print('begin train')
     ''' supervised part '''
@@ -187,10 +208,19 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
         loss_ce = 0.1 * criterion_bce(pred_sup_l, gts) # 根据预测结果和标签计算CE损失 # retinal是5 XCAD是0.1 crack是5 # For retinal :5 For XCAD:0.1 5 for crack
         loss_dice = criterion(pred_sup_l, gts) # 根据预测结果和标签计算Dice损失
         pred_target, sample_set_unsup, flag_un = Segment_model(unsup_imgs, mask=None, trained=True, fake=False) #mask影响正负样本的获取
-        D_seg_target_out = predict_Discriminator_model(pred_target) #判别是否为 直线合成血管 or 曲线生成血管
-        loss_adv_target = bce_loss(F.sigmoid(D_seg_target_out), #计算对比学习的损失
+        D_seg_target_out = predict_Discriminator_model(pred_target) #计算对抗损失 #判别是否为 直线合成血管 or 曲线标注血管
+        loss_adv_target = bce_loss(F.sigmoid(D_seg_target_out), #无监督曲线标注血管的预测结果
                                    torch.FloatTensor(D_seg_target_out.data.size()).fill_(source_label).cuda())
-        quary_feature, pos_feature, neg_feature, flag = check_feature(sample_set_sup, sample_set_unsup) ##############################
+        quary_feature, pos_feature, neg_feature, flag = check_feature(sample_set_sup, sample_set_unsup)
+        '''
+        in:
+            sample_sets_sup：  有监督合成图片用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
+            sample_sets_unsup：无监督真实图片用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
+        out:
+            quary_feature: 合成图像 全部易正样本的特征 [<=2000, 64]=[2000, 64]
+            pos_feature:   真实图像 全部易正样本的特征 [<=2000, 64]=[579,  64]
+            neg_feature:   合成和真实的图像 部分易负样本的特征 [<=500, 64]=[462, 64]
+        '''
 
         if flag:
             loss_contrast = criterion_contrast(quary_feature, pos_feature, neg_feature)
