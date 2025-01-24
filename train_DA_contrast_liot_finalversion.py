@@ -265,8 +265,6 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
             这通常用于当你想要使用张量的值但不希望其梯度影响反向传播时。
         '''
         D_out_src = predict_Discriminator_model(pred_sup_l) #D_out_src.shape=[4, 1, 8, 8]
-        print('D_out_src',D_out_src.shape)
-        exit(0)
 
         loss_D_src = bce_loss(F.sigmoid(D_out_src),
                               torch.FloatTensor(D_out_src.data.size()).fill_(source_label).cuda())
