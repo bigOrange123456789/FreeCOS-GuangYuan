@@ -1,7 +1,8 @@
 {
     "seed": 12345,
     "vessel3D": true,
-    "datapath": "../Dataset/XCAD",
+    "datapath": "../DataSet-images/XCAD_FreeCOS",
+    "datapath_old2": "../Dataset/XCAD",
     "datapath_old": "./Data/XCAD",
 
     "version": "2025.01.24--20:19",
