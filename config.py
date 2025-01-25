@@ -75,7 +75,8 @@ C.bn_momentum = 0.1
 C.cps_weight = 6
 
 ''' Our New Setting(我们自己的设置) '''
-C.vessel3D = C_["vessel3D"]
+C.vessel3D = C_["vessel3D"] #使用合成的3D血管/使用合成的2D血管
+C.ASL = C_["ASL"] #不平衡损失/加权BCE
 
 """Image Config"""
 C.num_classes = 1

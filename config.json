@@ -1,6 +1,7 @@
 {
     "seed": 12345,
-    "vessel3D": true,
+    "vessel3D": false,
+    "ASL": true,
     "datapath": "../DataSet-images/XCAD_FreeCOS",
     "datapath_old": ["../Dataset/XCAD","./Data/XCAD"],
     "logname":"test_XCADmodel",

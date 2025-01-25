@@ -23,6 +23,58 @@ from utils.loss_function import DiceLoss, Contrastloss, ContrastRegionloss, Cont
     ContrastRegionloss_supunsup, ContrastRegionloss_NCE, ContrastRegionloss_AllNCE, ContrastRegionloss_quaryrepeatNCE, Triplet
 from base_model.discriminator import PredictDiscriminator, PredictDiscriminator_affinity
 
+def asymmetric_loss(x, y, gamma_neg=4, gamma_pos=0, clip=0.05, eps=1e-8, disable_torch_grad_focal_loss=True):
+    """"
+    用于计算不平衡损失
+    源自谢驰师哥的代码：https://github.com/charles-xie/CQL
+    Parameters
+    ----------
+    x: input logits
+    y: targets (multi-label binarized vector)
+    """
+    # criterion_bce(x=pred_sup_l, y=gts) # 根据预测结果x和标签y计算CE损失
+    pos_inds = y.eq(1).float() #转换为布尔型,再转换为浮点型
+    num_pos = pos_inds.float().sum() #标签中血管所占像素的总数
+    '''
+    x.shape=[4, 1, 256, 256]
+    y.shape=[4, 1, 256, 256]
+    num_pos=tensor(19957.)
+    '''
+
+    # Calculating Probabilities
+    # x_sigmoid = torch.sigmoid(x)
+    x_sigmoid = x
+    xs_pos = x_sigmoid
+    xs_neg = 1 - x_sigmoid
+
+    # Asymmetric Clipping
+    if clip is not None and clip > 0:
+        xs_neg = (xs_neg + clip).clamp(max=1)
+
+    # Basic CE calculation
+    los_pos = y * torch.log(xs_pos.clamp(min=eps))
+    los_neg = (1 - y) * torch.log(xs_neg.clamp(min=eps))
+    loss = los_pos + los_neg
+
+    # Asymmetric Focusing
+    if gamma_neg > 0 or gamma_pos > 0:
+        if disable_torch_grad_focal_loss:
+            torch.set_grad_enabled(False)
+        pt0 = xs_pos * y
+        pt1 = xs_neg * (1 - y)  # pt = p if t > 0 else 1-p
+        pt = pt0 + pt1
+        one_sided_gamma = gamma_pos * y + gamma_neg * (1 - y)
+        one_sided_w = torch.pow(1 - pt, one_sided_gamma)
+        if disable_torch_grad_focal_loss:
+            torch.set_grad_enabled(True)
+        loss *= one_sided_w
+    # loss.shape=[4, 1, 256, 256] <torch.Tensor>
+
+    if num_pos == 0:
+        return -loss.sum()
+    else:
+        return -loss.sum() / num_pos
+
 def create_csv(path, csv_head):
     with open(path, 'w', newline='') as f:
         csv_write = csv.writer(f)
@@ -170,9 +222,12 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
                 这可以允许程序在等待数据传输的同时执行其他操作，从而提高程序的总体效率。
                 然而，需要注意的是，如果后续操作立即依赖于这些数据，并且数据尚未完全传输到GPU，则可能会导致未定义行为或错误。
         '''
-        with torch.no_grad(): #禁用梯度计算
-        # 这个上下文管理器用于暂时禁用梯度计算。在这个代码块内部执行的所有操作都不会被记录在PyTorch的计算图中，因此不会计算梯度。
-        # 这通常用于推理（inference）或评估（evaluation）阶段，以减少内存消耗并加速计算。
+        if config.ASL:
+            criterion_bce = asymmetric_loss
+        else:
+         with torch.no_grad(): #禁用梯度计算
+         # 这个上下文管理器用于暂时禁用梯度计算。在这个代码块内部执行的所有操作都不会被记录在PyTorch的计算图中，因此不会计算梯度。
+         # 这通常用于推理（inference）或评估（evaluation）阶段，以减少内存消耗并加速计算。
             weight_mask = gts.clone().detach()
             # 这行代码克隆了gts张量，克隆是为了避免直接修改原始张量。
             # detach()方法分离了克隆的张量，使其不再与计算图相关联。
@@ -185,6 +240,7 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
                 weight (Tensor, optional) : 给定到每个批次元素的损失的手动重新缩放权重。如果给定，则必须是大小为 nbatch 的张量。
                 这意味着在计算损失时，不同类别的样本将对总损失有不同的贡献，这有助于处理类别不平衡问题。
             '''
+
         try: #获取一个batch的无监督数据
             unsup_minibatch = next(unsupervised_dataloader)
             # 这段代码尝试从unsupervised_dataloader迭代器中获取下一个数据批次。
