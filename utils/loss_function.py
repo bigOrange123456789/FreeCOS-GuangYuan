@@ -359,14 +359,14 @@ class InfoNCE(nn.Module):
         self.reduction = reduction
         self.negative_mode = negative_mode
 
-    def forward(self, query, positive_key, negative_keys=None):
+    def forward(self, query, positive_key, negative_keys=None,learnable_scalar=None):
         return info_nce(query, positive_key, negative_keys,
                         temperature=self.temperature,
                         reduction=self.reduction,
-                        negative_mode=self.negative_mode)
+                        negative_mode=self.negative_mode,learnable_scalar=learnable_scalar)
 
 
-def info_nce(query, positive_key, negative_keys=None, temperature=0.1, reduction='mean', negative_mode='unpaired'):
+def info_nce(query, positive_key, negative_keys=None, temperature=0.1, reduction='mean', negative_mode='unpaired',learnable_scalar=None):
     # Change the data dimsion 更改数据分辨率
 
     # negative_mode=unpaired
@@ -412,7 +412,7 @@ def info_nce(query, positive_key, negative_keys=None, temperature=0.1, reduction
             # Cosine between all query-negative combinations # [N_q N_neg]
             negative_logits = query @ transpose(negative_keys)
             '''
-                query.shape = [579, 64]
+                query.shape         = [579, 64]
                 negative_keys.shape = [462, 64]
                 negative_logits.shape=[579,462]
                 
@@ -424,6 +424,24 @@ def info_nce(query, positive_key, negative_keys=None, temperature=0.1, reduction
             query = query.unsqueeze(1)
             negative_logits = query @ transpose(negative_keys)
             negative_logits = negative_logits.squeeze(1)
+        # negative_logits
+        # if True:#一段测试代码
+        #     # 假设a是一个标量阈值
+        #     a = 0.5
+        #
+        #     # 创建一个shape=[10,5]的tensor对象x，并填充一些随机值
+        #     x = torch.randn(3, 3)
+        #     print('x1:',x)
+        #
+        #     # 使用torch.where来根据条件更新x的值
+        #     # torch.where(condition, x1, x2)会返回一个新的张量，其中满足condition的位置取x1的值，不满足的位置取x2的值
+        #     x = torch.where(x > a, torch.full_like(x, a), x)
+        #     print('x2:', x)
+        if not learnable_scalar==None:#一段测试代码
+            # learnable_scalar = torch.clamp(learnable_scalar, min=0, max=2.)
+            learnable_scalar = torch.clamp(learnable_scalar, min=1,max=2.)
+            negative_logits = torch.clamp(negative_logits, min=learnable_scalar-1)
+
 
         # First index in last dimension are the positive samples
         logits = torch.cat([positive_logit, negative_logits], dim=1)
@@ -440,7 +458,13 @@ def info_nce(query, positive_key, negative_keys=None, temperature=0.1, reduction
         labels = torch.arange(len(query), device=query.device)
 
     # (logits / temperature).shape=[579, 463]
-    return F.cross_entropy(logits / temperature, labels, reduction=reduction)
+    # print('test',learnable_scalar)
+
+    info_nce_loss=F.cross_entropy(logits / temperature, labels, reduction=reduction)
+    if not learnable_scalar == None:
+        c = 35.  # 这是一个超参数
+        info_nce_loss = info_nce_loss + c * 1. / (learnable_scalar ** 2 + 1e-9)  # 加一个小数防止除以零
+    return info_nce_loss
     # reduction有两种选择mean、sum，这里应该是mean
 
 
@@ -504,7 +528,7 @@ class ContrastRegionloss_quaryrepeatNCE(nn.Module):
         super(ContrastRegionloss_quaryrepeatNCE, self).__init__()
         self.infonceloss = InfoNCE()
 
-    def forward(self, quary, pos_feature, neg_feature):
+    def forward(self, quary, pos_feature, neg_feature, learnable_scalar=None):
         '''
         quary_feature: 合成图像 全部易正样本的特征 [<=2000, 64]=[2000, 64]       len=2000
         pos_feature:   真实图像 全部易正样本的特征 [<=2000, 64]=[579,  64]       len=579
@@ -515,7 +539,7 @@ class ContrastRegionloss_quaryrepeatNCE(nn.Module):
         else:
             pos_feature = pos_feature[:len(quary),:]
         # 合成图像与真实图像 使用的易正样本数量要保持一致
-        return self.infonceloss(quary, pos_feature, neg_feature)
+        return self.infonceloss(quary, pos_feature, neg_feature,learnable_scalar)
 
 
 class ContrastRegionloss_NCE(nn.Module):

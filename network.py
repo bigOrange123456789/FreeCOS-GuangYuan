@@ -8,6 +8,8 @@ from functools import partial
 from base_model import resnet50
 from base_model import UNet,UNet_IBN, UNet_DA, UNet_contrast, UNet_contrastbase, Iternet, Iternet_constrast
 
+from config import config
+
 class Network(nn.Module):
     def __init__(self, num_classes, criterion, norm_layer, pretrained_model=None):
         super(Network, self).__init__()
@@ -148,6 +150,10 @@ class Single_contrast_UNet(nn.Module): # Single_contrast_UNet 单对比度UNet
         self.backbone = UNet_contrast(n_channels=n_channels, n_classes=num_classes) # 通道=4,分类=1
         self.business_layer = []
         self.business_layer.append(self.backbone)
+        # self.learnable_scalar = nn.Parameter(torch.tensor(1.0))  # 用于对比学习的标量
+        # self.learnable_scalar = self.backbone.learnable_scalar
+        if config['marginInfoNCE']:
+            self.learnable_scalar = nn.Parameter(torch.tensor(2.0))  # 用于对比学习的标量
 
     def forward(self, data,mask=None,trained=True, fake=True): # fake=T/F -> masks真标签/预测标签
         '''

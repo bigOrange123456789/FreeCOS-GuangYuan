@@ -370,6 +370,8 @@ class UNet_contrast(nn.Module):
         # self.contrast = ContrastiveHead_torch(num_convs=1,num_projectfc=2,thred_u=0.1,scale_u=1.0,percent=0.3) #init the contrast head to conv 8;
         self.contrast = ContrastiveHead_myself(num_convs=1,num_projectfc=2,thred_u=0.1,scale_u=1.0,percent=0.3)
 
+        # self.learnable_scalar = nn.Parameter(torch.tensor(1000.0))  # 用于对比学习的标量
+
     def cat_(self,xe,xd):
         diffY = xe.size()[2] - xd.size()[2]
         diffX = xe.size()[3] - xd.size()[3]

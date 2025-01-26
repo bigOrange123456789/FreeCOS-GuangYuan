@@ -281,7 +281,10 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
         '''
 
         if flag:
-            loss_contrast = criterion_contrast(quary_feature, pos_feature, neg_feature)
+            if hasattr(Segment_model, 'learnable_scalar'):
+                loss_contrast = criterion_contrast(quary_feature, pos_feature, neg_feature, Segment_model.learnable_scalar)
+            else:
+                loss_contrast = criterion_contrast(quary_feature, pos_feature, neg_feature)
             '''
                 quary_feature: 合成图像 全部易正样本的特征 [<=2000, 64]=[2000, 64]       ->len=579 (这里的正样本成对使用)
                 pos_feature:   真实图像 全部易正样本的特征 [<=2000, 64]=[579,  64]       ->len=579 
@@ -289,6 +292,9 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
             '''
         else:
             loss_contrast = 0
+
+        # if hasattr(Segment_model, 'learnable_scalar'):
+        #     print('learnable_scalar1 ', Segment_model.learnable_scalar,Segment_model.learnable_scalar.grad)
         weight_contrast = 0.04  #对比损失的权重 # 0.04 for NCE allpixel/0.01maybe same as dice
         loss_seg = loss_dice + loss_ce #(当前batch的)伪监督损失
         sum_loss_seg += loss_seg.item() #(本次的epoch的)伪监督损失
@@ -297,6 +303,8 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
 
         loss_adv = (loss_adv_target * damping) / 4 + loss_dice + loss_ce + weight_contrast * (loss_contrast) #对抗+监督+对比
         loss_adv.backward(retain_graph=False) # #计算分割网络参数的梯度,并累加到网络参数的.grad属性中
+        # if hasattr(Segment_model, 'learnable_scalar'):
+        #     print('learnable_scalar2 ', Segment_model.learnable_scalar, Segment_model.learnable_scalar.grad)
         '''
             retain_graph=False：
                 在默认情况下（即retain_graph=False），在计算完梯度后会释放用于计算梯度的计算图（graph）。
@@ -334,6 +342,8 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
         loss_D_tar.backward(retain_graph=False) #计算判别器参数的梯度,并累加到网络参数的.grad属性中
         sum_Dtar_loss += loss_D_tar.item() #(本次的epoch的)目标数据域 判别器损失
         optimizer_l.step() # 根据梯度更新分割器的参数
+        # if hasattr(Segment_model, 'learnable_scalar'):
+        #     print('learnable_scalar3 ', Segment_model.learnable_scalar, Segment_model.learnable_scalar.grad)
         optimizer_D.step() # 根据梯度更新判别器的参数
 
         # lr_policy, lrD_policy,      学习率调整的策略    <engine.lr_policy.WarmUpPolyLR>
@@ -520,6 +530,8 @@ def main():
         Segment_model.backbone, # 分割网络的主干
         BatchNorm2d,    # BatchNorm2d: <class 'torch.nn.modules.batchnorm.BatchNorm2d'>
         base_lr)        # base_lr: 0.01
+    if hasattr(Segment_model, 'learnable_scalar'): #用于优化对比学习的一个边缘间隔margin参数
+        params_list_l.append(dict(params=Segment_model.learnable_scalar, lr=base_lr))
     # optimizer for segmentation_L   # 分割优化器_L
     print("config.weight_decay", config.weight_decay)
     optimizer_l = torch.optim.SGD(params_list_l,#分割网络中的全部参数
