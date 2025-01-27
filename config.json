@@ -1,8 +1,11 @@
 {
     "seed": 12345,
     "vessel3D": false,
-    "ASL": false,
-    "marginInfoNCE": true,
+    "ASL": {
+        "gamma_neg":0, 
+        "gamma_pos":0
+    },
+    "marginInfoNCE": false,
     "datapath": "../DataSet-images/XCAD_FreeCOS",
     "datapath_old": ["../Dataset/XCAD","./Data/XCAD"],
     "logname":"test_XCADmodel",

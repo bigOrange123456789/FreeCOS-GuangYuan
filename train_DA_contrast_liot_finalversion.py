@@ -23,14 +23,19 @@ from utils.loss_function import DiceLoss, Contrastloss, ContrastRegionloss, Cont
     ContrastRegionloss_supunsup, ContrastRegionloss_NCE, ContrastRegionloss_AllNCE, ContrastRegionloss_quaryrepeatNCE, Triplet
 from base_model.discriminator import PredictDiscriminator, PredictDiscriminator_affinity
 
-def asymmetric_loss(x, y, gamma_neg=4, gamma_pos=0, clip=0.05, eps=1e-8, disable_torch_grad_focal_loss=True):
+def asymmetric_loss(x, y, clip=0.05, eps=1e-8, disable_torch_grad_focal_loss=True):
+# def asymmetric_loss(x, y, gamma_neg=4, gamma_pos=0, clip=0.05, eps=1e-8, disable_torch_grad_focal_loss=True):
+    gamma_neg=config.gamma_neg
+    gamma_pos=config.gamma_pos
     """"
     用于计算不平衡损失
     源自谢驰师哥的代码：https://github.com/charles-xie/CQL
     Parameters
     ----------
-    x: input logits
-    y: targets (multi-label binarized vector)
+    x: input logits     [4, 1, 256, 256]
+    tensor([[[[0.7753, 0.7117, 0.5816,  ...,
+    y: targets (multi-label binarized vector)   [4, 1, 256, 256]
+    tensor([[[[0., 0., 0.,  ...,
     """
     # criterion_bce(x=pred_sup_l, y=gts) # 根据预测结果x和标签y计算CE损失
     pos_inds = y.eq(1).float() #转换为布尔型,再转换为浮点型
@@ -43,30 +48,31 @@ def asymmetric_loss(x, y, gamma_neg=4, gamma_pos=0, clip=0.05, eps=1e-8, disable
 
     # Calculating Probabilities
     # x_sigmoid = torch.sigmoid(x)
-    x_sigmoid = x
-    xs_pos = x_sigmoid
-    xs_neg = 1 - x_sigmoid
+    x_sigmoid = x  # x.shape=[4, 1, 256, 256]
+    xs_pos = x_sigmoid #血管概率
+    xs_neg = 1 - x_sigmoid #背景概率
+    # print(xs_pos.shape, xs_neg.shape,xs_neg)
 
-    # Asymmetric Clipping
+    # Asymmetric Clipping 不对称剪裁(这个操作的作用是什么？)
     if clip is not None and clip > 0:
-        xs_neg = (xs_neg + clip).clamp(max=1)
+        xs_neg = (xs_neg + clip).clamp(max=1) # 将所有背景概率都增大clip(5%)
 
     # Basic CE calculation
     los_pos = y * torch.log(xs_pos.clamp(min=eps))
     los_neg = (1 - y) * torch.log(xs_neg.clamp(min=eps))
-    loss = los_pos + los_neg
+    loss = los_pos + los_neg # loss.shape = [4, 1, 256, 256]
 
     # Asymmetric Focusing
     if gamma_neg > 0 or gamma_pos > 0:
         if disable_torch_grad_focal_loss:
-            torch.set_grad_enabled(False)
+            torch.set_grad_enabled(False) # 接下来不去计算梯度
         pt0 = xs_pos * y
         pt1 = xs_neg * (1 - y)  # pt = p if t > 0 else 1-p
         pt = pt0 + pt1
         one_sided_gamma = gamma_pos * y + gamma_neg * (1 - y)
         one_sided_w = torch.pow(1 - pt, one_sided_gamma)
         if disable_torch_grad_focal_loss:
-            torch.set_grad_enabled(True)
+            torch.set_grad_enabled(True) # 接下来恢复计算梯度
         loss *= one_sided_w
     # loss.shape=[4, 1, 256, 256] <torch.Tensor>
 
@@ -222,7 +228,10 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
                 这可以允许程序在等待数据传输的同时执行其他操作，从而提高程序的总体效率。
                 然而，需要注意的是，如果后续操作立即依赖于这些数据，并且数据尚未完全传输到GPU，则可能会导致未定义行为或错误。
         '''
+        # if config.ASL:(失败了，使用这种方法准确度变为0)
+        #     criterion_bce = asymmetric_loss
         if config.ASL:
+         with torch.no_grad(): #禁用梯度计算
             criterion_bce = asymmetric_loss
         else:
          with torch.no_grad(): #禁用梯度计算

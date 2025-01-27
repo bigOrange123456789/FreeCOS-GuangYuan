@@ -76,8 +76,14 @@ C.cps_weight = 6
 
 ''' Our New Setting(我们自己的设置) '''
 C.vessel3D = C_["vessel3D"] #使用合成的3D血管/使用合成的2D血管
-C.ASL = C_["ASL"] #不平衡损失/加权BCE
+C.ASL = True #C_["ASL"] #不平衡损失/加权BCE
+# gamma_neg=0, gamma_pos=0 的时候应该就相当于C.ASL = False
+C.gamma_neg=C_["ASL"]["gamma_neg"]
+C. gamma_pos=C_["ASL"]["gamma_pos"]
 C.marginInfoNCE = C_['marginInfoNCE']
+
+
+
 """Image Config"""
 C.num_classes = 1
 C.background = -1
