@@ -96,6 +96,38 @@ def bce_loss_lzc(x, y, eps=1e-8):
     loss = los_pos + los_neg # loss.shape = [4, 1, 256, 256]
 
     return -loss.mean()
+class BCELoss_lzc_w():
+    def __init__(
+        self,
+        weight
+        # weight: Optional[Tensor] = None,
+        # size_average=None,
+        # reduce=None,
+        # reduction: str = "mean",
+    ):
+        super(BCELoss_lzc_w, self).__init__()
+        self.weight=weight# super().__init__(weight, size_average, reduce, reduction)
+
+    def forward(self, x ,y, eps=1e-8 ) :
+        # return F.binary_cross_entropy(
+        #     input, target, weight=self.weight, reduction=self.reduction
+        # )
+            # Calculating Probabilities
+        # x_sigmoid = torch.sigmoid(x)
+        x_sigmoid = x  # x.shape=[4, 1, 256, 256]
+        xs_pos = x_sigmoid #血管概率
+        xs_neg = 1 - x_sigmoid #背景概率
+        # print(xs_pos.shape, xs_neg.shape,xs_neg)
+
+        # Basic CE calculation
+        los_pos = y * torch.log(xs_pos.clamp(min=eps))
+        los_neg = (1 - y) * torch.log(xs_neg.clamp(min=eps))
+        loss = los_pos + los_neg # loss.shape = [4, 1, 256, 256]
+        loss=loss*self.weight
+
+        return -loss.mean()
+
+
 
 def create_csv(path, csv_head):
     with open(path, 'w', newline='') as f:
@@ -247,8 +279,13 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
         # if config.ASL:(失败了，使用这种方法准确度变为0)
         #     criterion_bce = asymmetric_loss
         if config.ASL:
+        #  with torch.no_grad(): #禁用梯度计算
+        #     criterion_bce = bce_loss_lzc#asymmetric_loss
          with torch.no_grad(): #禁用梯度计算
-            criterion_bce = bce_loss_lzc#asymmetric_loss
+            weight_mask = gts.clone().detach()
+            weight_mask[weight_mask == 0] = 0.1 # 值为0的元素设为0.1
+            weight_mask[weight_mask == 1] = 1   # 值为1的元素保持不变
+            criterion_bce = BCELoss_lzc_w(weight=weight_mask)
         else:
          with torch.no_grad(): #禁用梯度计算
          # 这个上下文管理器用于暂时禁用梯度计算。在这个代码块内部执行的所有操作都不会被记录在PyTorch的计算图中，因此不会计算梯度。
