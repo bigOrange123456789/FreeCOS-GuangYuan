@@ -96,7 +96,7 @@ def bce_loss_lzc(x, y, eps=1e-8):
     loss = los_pos + los_neg # loss.shape = [4, 1, 256, 256]
 
     return -loss.mean()
-class BCELoss_lzc_w():
+class BCELoss_lzc_w(nn.Module):
     def __init__(
         self,
         weight
