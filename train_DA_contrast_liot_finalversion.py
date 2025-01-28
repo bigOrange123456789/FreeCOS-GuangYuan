@@ -96,34 +96,45 @@ def bce_loss_lzc(x, y, eps=1e-8):
     loss = los_pos + los_neg # loss.shape = [4, 1, 256, 256]
 
     return -loss.mean()
-class BCELoss_lzc_w(nn.Module):
+class BCELoss_lzc(nn.Module):
     def __init__(
         self,
-        weight
-        # weight: Optional[Tensor] = None,
-        # size_average=None,
-        # reduce=None,
-        # reduction: str = "mean",
+        weight=None,
+        eps=1e-8,
+        gamma_neg=0,
+        gamma_pos=0,
+        disable_torch_grad_focal_loss=True
     ):
-        super(BCELoss_lzc_w, self).__init__()
-        self.weight=weight# super().__init__(weight, size_average, reduce, reduction)
+        super(BCELoss_lzc, self).__init__()
+        self.weight=weight
+        self.eps=eps
+        self.gamma_neg=gamma_neg #用于Focal Loss
+        self.gamma_pos=gamma_pos #用于Focal Loss
+        self.disable_torch_grad_focal_loss=disable_torch_grad_focal_loss #用于Focal Loss
 
-    def forward(self, x ,y, eps=1e-8 ) :
-        # return F.binary_cross_entropy(
-        #     input, target, weight=self.weight, reduction=self.reduction
-        # )
-            # Calculating Probabilities
-        # x_sigmoid = torch.sigmoid(x)
-        x_sigmoid = x  # x.shape=[4, 1, 256, 256]
-        xs_pos = x_sigmoid #血管概率
-        xs_neg = 1 - x_sigmoid #背景概率
-        # print(xs_pos.shape, xs_neg.shape,xs_neg)
+    def forward(self, x , y ) :
+        xs_pos = x #血管概率
+        xs_neg = 1 - x #背景概率
 
         # Basic CE calculation
-        los_pos = y * torch.log(xs_pos.clamp(min=eps))
-        los_neg = (1 - y) * torch.log(xs_neg.clamp(min=eps))
+        los_pos = y * torch.log(xs_pos.clamp(min=self.eps))
+        los_neg = (1 - y) * torch.log(xs_neg.clamp(min=self.eps))
         loss = los_pos + los_neg # loss.shape = [4, 1, 256, 256]
-        loss=loss*self.weight
+
+
+        # Asymmetric Focusing
+        if self.gamma_neg > 0 or self.gamma_pos > 0:
+            if self.disable_torch_grad_focal_loss:
+                torch.set_grad_enabled(False) # 接下来不去计算梯度
+            pt = xs_neg * y  + xs_pos * (1 - y)
+            one_sided_gamma = self.gamma_pos * y + self.gamma_neg * (1 - y)
+            one_sided_w = torch.pow( pt, one_sided_gamma)
+            if self.disable_torch_grad_focal_loss:
+                torch.set_grad_enabled(True) # 接下来恢复计算梯度
+            loss *= one_sided_w
+
+        if not self.weight is None:#原本BCE自带的加权功能
+            loss=loss*self.weight
 
         return -loss.mean()
 
@@ -278,30 +289,22 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
         '''
         # if config.ASL:(失败了，使用这种方法准确度变为0)
         #     criterion_bce = asymmetric_loss
-        if config.ASL:
-        #  with torch.no_grad(): #禁用梯度计算
-        #     criterion_bce = bce_loss_lzc#asymmetric_loss
-         with torch.no_grad(): #禁用梯度计算
+        with torch.no_grad(): #禁用梯度计算
             weight_mask = gts.clone().detach()
             weight_mask[weight_mask == 0] = 0.1 # 值为0的元素设为0.1
             weight_mask[weight_mask == 1] = 1   # 值为1的元素保持不变
-            criterion_bce = BCELoss_lzc_w(weight=weight_mask)
-        else:
-         with torch.no_grad(): #禁用梯度计算
-         # 这个上下文管理器用于暂时禁用梯度计算。在这个代码块内部执行的所有操作都不会被记录在PyTorch的计算图中，因此不会计算梯度。
-         # 这通常用于推理（inference）或评估（evaluation）阶段，以减少内存消耗并加速计算。
-            weight_mask = gts.clone().detach()
-            # 这行代码克隆了gts张量，克隆是为了避免直接修改原始张量。
-            # detach()方法分离了克隆的张量，使其不再与计算图相关联。
-            # 分离是为了确保后续操作不会影响梯度计算（尽管在这个torch.no_grad()上下文中梯度计算已被禁用）。
-            weight_mask[weight_mask == 0] = 0.1 # 值为0的元素设为0.1
-            weight_mask[weight_mask == 1] = 1   # 值为1的元素保持不变
-            criterion_bce = nn.BCELoss(weight=weight_mask)
-            '''
-                血管区域太小，背景区域太大。因此分别给这两个区域使用了不同的权重。
-                weight (Tensor, optional) : 给定到每个批次元素的损失的手动重新缩放权重。如果给定，则必须是大小为 nbatch 的张量。
-                这意味着在计算损失时，不同类别的样本将对总损失有不同的贡献，这有助于处理类别不平衡问题。
-            '''
+            if True: # if config.ASL:
+                criterion_bce = BCELoss_lzc(
+                    weight=weight_mask,
+                    gamma_pos=config.gamma_pos,
+                    gamma_neg=config.gamma_neg)
+            else:
+                criterion_bce = nn.BCELoss(weight=weight_mask)
+                '''
+                    血管区域太小，背景区域太大。因此分别给这两个区域使用了不同的权重。
+                    weight (Tensor, optional) : 给定到每个批次元素的损失的手动重新缩放权重。如果给定，则必须是大小为 nbatch 的张量。
+                    这意味着在计算损失时，不同类别的样本将对总损失有不同的贡献，这有助于处理类别不平衡问题。
+                '''
 
         try: #获取一个batch的无监督数据
             unsup_minibatch = next(unsupervised_dataloader)
@@ -334,8 +337,8 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
         quary_feature, pos_feature, neg_feature, flag = check_feature(sample_set_sup, sample_set_unsup)
         '''
         in:
-            sample_sets_sup：  有监督合成图片用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
-            sample_sets_unsup：无监督真实图片用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
+            sample_sets_sup:  有监督合成图片用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
+            sample_sets_unsup:无监督真实图片用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
         out:
             quary_feature: 合成图像 全部易正样本的特征 [<=2000, 64]=[2000, 64]
             pos_feature:   真实图像 全部易正样本的特征 [<=2000, 64]=[579,  64]

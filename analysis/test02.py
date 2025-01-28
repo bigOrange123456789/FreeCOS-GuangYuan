@@ -34,7 +34,8 @@ if True:
     # progressFile("FreeCOS-GuangYuan05",'m')
     # progressFile("FreeCOS-GuangYuan06",'y') # 错误
     # progressFile("FreeCOS-GuangYuan07",'y')
-    progressFile("FreeCOS-GuangYuan08",'y')
+    progressFile("FreeCOS-GuangYuan09",'y')
+    progressFile("FreeCOS-GuangYuan10",'g')
     plt.title('y:F1 x:epoch')  # 设置标题
     plt.xlabel('Epoch')  # 设置横坐标标签
     plt.ylabel('F1 Score')  # 设置纵坐标标签

@@ -2,13 +2,13 @@
     "seed": 12345,
     "vessel3D": false,
     "ASL": {
-        "gamma_neg":0, 
+        "gamma_neg":1, 
         "gamma_pos":0
     },
     "marginInfoNCE": false,
     "datapath": "../DataSet-images/XCAD_FreeCOS",
     "datapath_old": ["../Dataset/XCAD","./Data/XCAD"],
-    "logname":"../DataSet-images/XCAD_FreeCOS_log/FreeCOS10",
-    "logname-old":"test_XCADmodel",
+    "logname":"./FreeCOS10",
+    "logname-old":["test_XCADmodel","../DataSet-images/XCAD_FreeCOS_log/FreeCOS10"],
     "version": "2025.01.25--14:00"
 }
