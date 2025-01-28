@@ -28,11 +28,13 @@ def progressFile(name,color):
 
 if True:
     progressFile("FreeCOS-GuangYuan01",'r')
-    #progressFile("FreeCOS-GuangYuan02",'g')
-    #progressFile("FreeCOS-GuangYuan03",'b')
-    #progressFile("FreeCOS-GuangYuan04",'c')
-    #progressFile("FreeCOS-GuangYuan05",'m')
-    progressFile("FreeCOS-GuangYuan07",'y')
+    # progressFile("FreeCOS-GuangYuan02",'g')
+    # progressFile("FreeCOS-GuangYuan03",'b')
+    # progressFile("FreeCOS-GuangYuan04",'c')
+    # progressFile("FreeCOS-GuangYuan05",'m')
+    # progressFile("FreeCOS-GuangYuan06",'y') # 错误
+    # progressFile("FreeCOS-GuangYuan07",'y')
+    progressFile("FreeCOS-GuangYuan08",'y')
     plt.title('y:F1 x:epoch')  # 设置标题
     plt.xlabel('Epoch')  # 设置横坐标标签
     plt.ylabel('F1 Score')  # 设置纵坐标标签

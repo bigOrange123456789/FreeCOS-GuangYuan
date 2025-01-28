@@ -81,6 +81,22 @@ def asymmetric_loss(x, y, clip=0.05, eps=1e-8, disable_torch_grad_focal_loss=Tru
     else:
         return -loss.sum() / num_pos
 
+def bce_loss_lzc(x, y, eps=1e-8):
+
+    # Calculating Probabilities
+    # x_sigmoid = torch.sigmoid(x)
+    x_sigmoid = x  # x.shape=[4, 1, 256, 256]
+    xs_pos = x_sigmoid #血管概率
+    xs_neg = 1 - x_sigmoid #背景概率
+    # print(xs_pos.shape, xs_neg.shape,xs_neg)
+
+    # Basic CE calculation
+    los_pos = y * torch.log(xs_pos.clamp(min=eps))
+    los_neg = (1 - y) * torch.log(xs_neg.clamp(min=eps))
+    loss = los_pos + los_neg # loss.shape = [4, 1, 256, 256]
+
+    return -loss.mean()
+
 def create_csv(path, csv_head):
     with open(path, 'w', newline='') as f:
         csv_write = csv.writer(f)
@@ -232,7 +248,7 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
         #     criterion_bce = asymmetric_loss
         if config.ASL:
          with torch.no_grad(): #禁用梯度计算
-            criterion_bce = asymmetric_loss
+            criterion_bce = bce_loss_lzc#asymmetric_loss
         else:
          with torch.no_grad(): #禁用梯度计算
          # 这个上下文管理器用于暂时禁用梯度计算。在这个代码块内部执行的所有操作都不会被记录在PyTorch的计算图中，因此不会计算梯度。
