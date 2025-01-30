@@ -10,6 +10,93 @@ from PIL import EpsImagePlugin
 
 EpsImagePlugin.gs_windows_binary = r'C:\Program Files\gs\gs10.04.0\bin\gswin64c'
 
+#######################   开始创建一个numpy对象的图片   #########################
+# 创建一个 255x255 的 numpy 数组
+# 这里生成一个灰度图像，值范围为 0 到 255
+array_lzc = np.random.randint(0, 256, size=(255, 255), dtype=np.uint8)
+
+def save_lzc():
+    # 将 numpy 数组转换为 PIL 图像
+    image = Image.fromarray(array_lzc, mode='L')  # 'L' 表示灰度图像
+
+    # 保存图像
+    output_path = "output_image.png"
+    image.save(output_path)
+
+    print(f"图像已保存到 {output_path}")
+
+class Img():
+    def __init__(self, width=800, height = 800):
+        self.image = np.zeros((width, height), dtype=np.uint8)
+    
+    def save(self, output_path = "output_image.png"): # 保存图像
+        pic = Image.fromarray(self.image, mode='L')  # 'L' 表示灰度图像
+        pic.save(output_path)
+        print(f"图像已保存到 {output_path}")
+
+    def draw(self,new_length,width0,x,y,theta):
+        print(new_length,width0,x,y,theta)
+        # 77.18 2 -152 -100 81.31
+        # theta=np.radians(45)
+        theta=np.radians(theta)#将角度制转换为弧度值
+        x=x+400
+        y=y+400
+        """
+        在numpy数组上绘制一条线段。
+        
+        参数:
+            image: numpy数组，表示图像。
+            x, y: 线段起点的坐标。
+            new_length: 线段的长度。
+            width: 线段的宽度。
+            theta: 线段与水平方向的逆时针夹角（以弧度为单位）。
+        """
+        # 计算线段的两个端点
+        end_x = x + new_length * np.cos(theta)
+        end_y = y + new_length * np.sin(theta)
+        
+        # 计算线段的中心点
+        center_x = (x + end_x) / 2
+        center_y = (y + end_y) / 2
+        
+        # 计算线段的方向向量
+        direction_x = np.cos(theta)
+        direction_y = np.sin(theta)
+        
+        # 计算线段的法向量
+        normal_x = -direction_y
+        normal_y = direction_x
+        
+        # 遍历图像中的每个像素
+        height, width = self.image.shape
+        for i in range(height):
+            for j in range(width):
+                # 计算像素点到线段中心点的向量
+                pixel_vector_x = j - center_x
+                pixel_vector_y = i - center_y
+                
+                # 计算像素点到线段的投影距离
+                projection_length = abs(pixel_vector_x * normal_x + pixel_vector_y * normal_y)
+                
+                # 判断像素点是否在线段的宽度范围内
+                if projection_length <= width0 / 2:
+                    # 计算像素点到线段起点的向量
+                    pixel_to_start_x = j - x
+                    pixel_to_start_y = i - y
+                    
+                    # 计算像素点到线段终点的向量
+                    pixel_to_end_x = j - end_x
+                    pixel_to_end_y = i - end_y
+                    
+                    # 判断像素点是否在线段的长度范围内
+                    if (pixel_to_start_x * direction_x + pixel_to_start_y * direction_y >= 0 and
+                        pixel_to_end_x * direction_x + pixel_to_end_y * direction_y <= 0):
+                        self.image[i, j] = 255  # 设置像素值为255（白色）
+
+
+
+#######################   结束创建一个numpy对象的图片   #########################
+
 def draw_background(a_turtle):
     """ Draw a background rectangle. """
     ts = a_turtle.getscreen()
@@ -45,6 +132,8 @@ def draw_background(a_turtle):
     a_turtle.speed(turtlespeed)
 
 def makecolor(turtle,new_length,width,x,y,theta):
+    array_lzc
+
     #Tile one pixel or two pixel
     turtle_screen.colormode(255) #背景设置为白色
     # system.draw(turtle)
@@ -101,6 +190,7 @@ class LSystem_vessel():
         self.lamda_2 = width_2
 
         self.x, self.y = start # 初始位置
+        self.img=Img() #lzc
 
     def __str__(self): # 感觉这个函数应该是用于print语句
         return self.sentence
@@ -172,6 +262,7 @@ class LSystem_vessel():
                 theta = self.theta
                 width = self.width
                 makecolor(turtle, new_length, width, x, y, theta) # 长度、宽度、起点、方向
+                self.img.draw(new_length, width, x, y, theta)
                 self.x, self.y = turtle.position() #更新位置
             elif char == '+': #调整行进方向
                 dtheta = np.random.randint(low=1, high=5) #
@@ -278,3 +369,5 @@ for i  in range(Num_image): #生成Num_image张图片
     print("im_array",im_array.shape)
     out.save(file_name)
     turtle.reset()
+    system.img.save()
+    exit(0)
