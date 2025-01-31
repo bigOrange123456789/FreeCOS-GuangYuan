@@ -1,51 +1,106 @@
-#from turtle import *
-import turtle
 import numpy as np
 import random
-import math
+# random.seed(42)#感觉这个随机数种子没有起作用
 from PIL import Image
-#tempNumpyArray=np.load("DRIVE_instensity.npy")
-#score = tempNumpyArray.tolist()
-# from PIL import EpsImagePlugin
-
-# EpsImagePlugin.gs_windows_binary = r'C:\Program Files\gs\gs10.04.0\bin\gswin64c'
+from scipy.ndimage import label, generate_binary_structure
 
 #######################   开始创建一个numpy对象的图片   #########################
-# 创建一个 255x255 的 numpy 数组
-# 这里生成一个灰度图像，值范围为 0 到 255
-array_lzc = np.random.randint(0, 256, size=(255, 255), dtype=np.uint8)
-
-def save_lzc():
-    # 将 numpy 数组转换为 PIL 图像
-    image = Image.fromarray(array_lzc, mode='L')  # 'L' 表示灰度图像
-
-    # 保存图像
-    output_path = "output_image.png"
-    image.save(output_path)
-
-    print(f"图像已保存到 {output_path}")
-
 class Img():
-    def __init__(self, width=800, height = 800):
+    def __init__(self, width=1024, height = 1024):
+    # def __init__(self, width=512*2+10, height = 512*2+10):
         self.image = np.zeros((width, height), dtype=np.uint8)
+        self.end_x=None
+        self.end_y=None
+
+    def find_center_of_pattern(self):
+        """
+        找到图案的中心点。
+        
+        参数:
+            image: numpy数组,表示图像。
+        
+        返回:
+            center_x, center_y: 图案的中心点坐标。
+        """
+        # 找到所有非零像素点的坐标
+        y_coords, x_coords = np.nonzero(self.image)
+        
+        # 计算中心点
+        center_x = int(np.mean(x_coords))
+        center_y = int(np.mean(y_coords))
+        
+        return center_x, center_y
     
+    def extract_rectangle(self, center_x, center_y, size=512):
+        half_size = size // 2
+        height, width = self.image.shape
+        
+        # 计算矩形框的边界
+        x_start = center_x - half_size
+        y_start = center_y - half_size
+        x_end = center_x + half_size
+        y_end = center_y + half_size
+        
+        # 检查边界是否超出图像范围，并调整中心点
+        if x_start < 0 or y_start < 0 or x_end > width or y_end > height:
+            print("边界超出图像范围")
+            if x_start < 0:
+                x_start = 0
+                x_end = size
+            if y_start < 0:
+                y_start = 0
+                y_end = size
+            if x_end > width:
+                x_end = width
+                x_start = width - size
+            if y_end > height:
+                y_end = height
+                y_start = height - size
+        
+        # 提取矩形框
+        rectangle = self.image[y_start:y_end, x_start:x_end]
+        
+        return rectangle
+    
+    def calculate_pixel_ratio(self):
+        # 计算颜色为255的像素数量
+        num_white_pixels = np.sum(self.image == 255)
+        
+        # 计算图片的总像素数量
+        total_pixels = self.image.size
+        
+        return num_white_pixels / total_pixels # 计算占比
+
     def save(self, output_path = "output_image.png"): # 保存图像
-        pic = Image.fromarray(self.image, mode='L')  # 'L' 表示灰度图像
-        pic.save(output_path)
-        print(f"图像已保存到 {output_path}")
+        center_x, center_y = self.find_center_of_pattern()
+        self.image = self.extract_rectangle( center_x, center_y)
+        connected = self.is_pattern_connected()
+        ratio = self.calculate_pixel_ratio()
+        print("连通情况为：",connected)
+        print("calculate_pixel_ratio",ratio)
+        if connected and ratio>0.05:
+            pic = Image.fromarray(self.image, mode='L')  # 'L' 表示灰度图像
+            pic.save(output_path)
+            print(f"图像已保存到 {output_path}")
+            return True
+        else: 
+            print("图片没有保存")
+            return False
 
     def draw(self,new_length,width,x,y,theta):
-        print(new_length,width,x,y,theta)
+        h, w = self.image.shape
+        # print(new_length,width,x,y,theta)
         # 77.18 2 -152 -100 81.31 
         # theta=np.radians(45)
         theta=np.radians(theta)#将角度制转换为弧度值
-        x=x+400
-        y=y+400
+        x=h/2+x
+        y=w/2+y
+        new_length=new_length+width/2.
         """
         在numpy数组上绘制一条线段。
         
         参数:
-            image: numpy数组，表示图像。
+            image: numpy数组,表示图像。
             x, y: 线段起点的坐标。
             new_length: 线段的长度。
             width: 线段的宽度。
@@ -54,6 +109,8 @@ class Img():
         # 计算线段的两个端点
         end_x = x + new_length * np.cos(theta)
         end_y = y + new_length * np.sin(theta)
+        self.end_x=end_x-h/2
+        self.end_y=end_y-w/2
         
         # 计算线段的中心点
         center_x = (x + end_x) / 2
@@ -92,85 +149,23 @@ class Img():
                     if (pixel_to_start_x * direction_x + pixel_to_start_y * direction_y >= 0 and
                         pixel_to_end_x * direction_x + pixel_to_end_y * direction_y <= 0):
                         self.image[i, j] = 255  # 设置像素值为255（白色）
-
-
+    def is_pattern_connected(self):
+        # 将图像转换为二值图像（0为背景，1为图案）
+        binary_image = (self.image == 255).astype(np.uint8)
+            
+        # 定义连通性结构（8连通）
+        structure = generate_binary_structure(2, 1)
+            
+        # 标记连通区域
+        labeled_array, num_features = label(binary_image, structure=structure)
+        print('num_features:',num_features)
+            
+        # 如果只有一个连通区域（num_features == 1），则说明所有像素都聚集在一起
+        return num_features == 1
 
 #######################   结束创建一个numpy对象的图片   #########################
 
-def draw_background(a_turtle):
-    """ Draw a background rectangle. """
-    ts = a_turtle.getscreen()
-    canvas = ts.getcanvas()
-    height = ts.getcanvas()._canvas.winfo_height()
-    width = ts.getcanvas()._canvas.winfo_width()
 
-    turtleheading = a_turtle.heading()
-    turtlespeed = a_turtle.speed()
-    penposn = a_turtle.position()
-    penstate = a_turtle.pen()
-
-    a_turtle.penup()
-    a_turtle.speed(0)  # fastest
-    a_turtle.goto(-width/2-2, -height/2+3)
-    print("turtle.Screen().bgcolor()",turtle.Screen().bgcolor())
-    a_turtle.fillcolor(255,255,255)
-    a_turtle.begin_fill()
-    a_turtle.setheading(0)
-    a_turtle.forward(width)
-    a_turtle.setheading(90)
-    a_turtle.forward(height)
-    a_turtle.setheading(180)
-    a_turtle.forward(width)
-    a_turtle.setheading(270)
-    a_turtle.forward(height)
-    a_turtle.end_fill()
-
-    a_turtle.penup()
-    a_turtle.setposition(*penposn)
-    a_turtle.pen(penstate)
-    a_turtle.setheading(turtleheading)
-    a_turtle.speed(turtlespeed)
-
-def makecolor(turtle,new_length,width,x,y,theta):
-    array_lzc
-
-    #Tile one pixel or two pixel
-    turtle_screen.colormode(255) #背景设置为白色
-    # system.draw(turtle)
-    #Need more set of different colorset#Get random colorset
-    random_R = np.random.randint(0, 255) #随机取一个颜色
-    random_G = np.random.randint(0, 255)
-    random_B = np.random.randint(0, 255)
-    R_insity = random_R
-    G_insity = random_G
-    B_insity = random_B
-
-    Ar1 = np.random.uniform(-3,3) # 正负三个颜色单位的偏移
-    Ag1 = np.random.uniform(-3,3)
-    Ab1 = np.random.uniform(-3,3)
-    turtle.pu() #抬起画笔，这样移动的时候不会留下痕迹 # turtle.pu()和turtle.pd()都有它们的别名turtle.up()和turtle.down()，它们的功能是完全相同的。
-    turtle.goto((x, y))
-    turtle.setheading(theta)
-    width = width
-    if width<2:#宽度不能低于两像素
-        width = 2
-    turtle.pensize(width)
-    new_instenisty_r = int(np.clip(R_insity + Ar1,0,255)) # rand(0, 255)+/-3
-    new_instenisty_g = int(np.clip(G_insity + Ag1,0,255))
-    new_instenisty_b = int(np.clip(B_insity + Ab1,0,255))
-    turtle.pencolor(new_instenisty_r, new_instenisty_g, new_instenisty_b)
-    turtle.pd() #放下画笔
-    # print('1a:', x, y, theta,width,new_instenisty_r, new_instenisty_g, new_instenisty_b,new_length)
-    turtle.forward(new_length) #向前移动
-
-    # 后面是绘制了第2遍，是冗余的代码
-    # turtle.pu() #抬起画笔
-    # turtle.goto((x, y)) #设置位置
-    # turtle.setheading(theta) #设置方向
-    # turtle.pd()
-    # turtle.pencolor(new_instenisty_r, new_instenisty_g, new_instenisty_b)
-    # turtle.forward(new_length)
-    # print('2b:', x, y, theta, width, new_instenisty_r, new_instenisty_g, new_instenisty_b, new_length)
 
 class LSystem_vessel():
     def __init__(self, axiom, rules, rules_2, rules_3, theta=0, width=5, dtheta_1=40, dtheta_2=30, start=(-350,0), length=80,iteration=3,width_1=0.79, width_2 = 0.5):
@@ -179,14 +174,19 @@ class LSystem_vessel():
         self.relus_2 = rules_2  # 规则2
         self.rules_3 = rules_3  # 规则3
         self.iteration = iteration # 迭代次数
-        self.width = width  # 初始宽度？
-        self.theta = theta  # 初始角度？
+        print("self.sentence",  self.sentence)
+        print("self.rules",     self.rules)
+        print("self.relus_2",   self.relus_2)
+        print("self.rules_3",   self.rules_3)
+        print("self.iteration", self.iteration)
+        self.width = width  # 初始宽度
+        self.theta = theta  # 初始角度
         self.dtheta_1 = dtheta_1 # 偏转角度？
         self.dtheta_2 = dtheta_2 # 偏转角度？
         self.length = length #长度
         self.positions = []
         self.start = start
-        self.lamda_1 = width_1
+        self.lamda_1 = width_1 #
         self.lamda_2 = width_2
 
         self.x, self.y = start # 初始位置
@@ -239,53 +239,41 @@ class LSystem_vessel():
                     pass
                 newStr += mapped # 更新这个规则
             self.sentence = newStr
+        print('self.sentence:',self.sentence)
+        return self.sentence
 
-    def draw(self, turtle):#根据规则语句来绘制图像
-        # turtle的本义是乌龟，感觉这里应该是表示画笔
-        turtle.pu()
-        turtle.hideturtle()
-        turtle.speed(0)
-        turtle.goto((self.x, self.y))
-        turtle.setheading(self.theta)
+    def draw(self):#根据规则语句来绘制图像
         flag = False
         for char in self.sentence: #规则语句由5种符号组成，分别是'F、+、-、[、]'。
-            turtle.pd()
             if char == 'F' or char == 'G': #根据行进轨迹 绘制线段
-                turtle.pu()
-                turtle.setheading(self.theta) # 设定方向
                 if flag == True:
-                    new_length = self.length*self.lamda_1
+                    new_length = self.length*self.lamda_1#分段后长度改变
                 else:
                     new_length = self.length*self.lamda_2
-                turtle.pensize(self.width) # 设定宽度
-                x, y = turtle.position() #起点
-                theta = self.theta
-                width = self.width
-                makecolor(turtle, new_length, width, x, y, theta) # 长度、宽度、起点、方向
-                self.img.draw(new_length, width, x, y, theta)
-                self.x, self.y = turtle.position() #更新位置
+
+                self.img.draw(new_length, self.width, self.x, self.y, self.theta)
+                self.x=self.img.end_x
+                self.y=self.img.end_y
+                # print('x1:',self.x,self.img.end_x, 'y1:',self.y,self.img.end_y)
             elif char == '+': #调整行进方向
-                dtheta = np.random.randint(low=1, high=5) #
+                # dtheta = np.random.randint(low=1, high=5) #
                 dtheta = np.random.randint(low=10, high=40) #【根据论文】
                 self.theta += dtheta
-                self.width = self.width * self.lamda_1
-                turtle.right(self.theta)
+                self.width = self.width * self.lamda_1#分叉后宽度改变
             elif char == '-': #反方向调整行进方向
                 self.width = self.width * self.lamda_2
-                dtheta = np.random.randint(low=1, high=5)  #
+                # dtheta = np.random.randint(low=1, high=5)  #
                 dtheta = np.random.randint(low=10, high=40) #【根据论文】
                 self.theta -= dtheta
-                turtle.left(self.theta)
             elif char == '[': #记录迭代位置 #使用数据栈结构
-                self.positions.append({'x': self.x, 'y': self.y, 'theta': self.theta, 'width': self.width, 'length': self.length,"new_width_0": self.width * 0.79})
+                self.positions.append({'x': self.x, 'y': self.y, 'theta': self.theta, 'width': self.width, 'length': self.length})
                 flag = True
             elif char == ']': #返回迭代位置
-                turtle.pu()
                 position = self.positions.pop()
                 self.x, self.y, self.theta, self.width = position['x'], position['y'], position['theta'], position['width']
                 flag = False
-                turtle.goto((self.x, self.y))
-                turtle.setheading(self.theta)
+            if self.width<2:#宽度不能低于两像素
+                self.width = 2 #self.width = 1.5
 
 # 所谓的规则语句，就是将字符F替换为由F组成的字符串
 rules = {"F":"F-F[+F-F][-F+F]"} # 这应该是类似json格式的对象
@@ -295,27 +283,41 @@ rules_4 = {"F":"F-F-F[+F-F][-F-F]F+F"}
 
 path = "[+F-F][-F]" #path变量应该是目前使用的规则
 print('path:',path)
+# 前期F多后期分支多
 
-Num_image = 25 #生成图片的数量
+Num_image = 8 # 25 #生成图片的数量
 Start_theta = (-0,0) # 初始方向为0 # 0为水平向右
 Start_theta = (20,120) # 【根据论文】初始角度方向为20~120
 Start_theta_2 = (0,0)
 
-Start_position_x = (-350, -150) # 初始位置的横坐标的范围
-Start_position_y = (-100, -100) # 初始位置的纵坐标坐标为-100
+# Start_position_x = (-350, -150) # 初始位置的横坐标的范围
+# Start_position_y = (-100, -100) # 初始位置的纵坐标坐标为-100
+Start_position_x = (0, 0) # 初始位置的横坐标的范围
+Start_position_y = (0, 0) # 初始位置的纵坐标坐标为-100
+
 Start_position_x2 = (150, 350)
-Ratio_LW = (0.7,1)
+Ratio_LW = (0.7,1) #宽度的分支衰减率
+Ratio_LW = (0.7,0.7) #宽度的分支衰减率【LZC:我的优化】
 
 Dtheta = (20,120) # 每次分岔时，角度的变化范围
 Width = (2,12) #initi 宽度的变化范围
-Length_range = (90, 150) # init range 长度的变化范围
-
-for i  in range(Num_image): #生成Num_image张图片
+# Width = (50,50) #【LZC:我的优化】
+Width = (20,20) #【LZC:我的优化】
+# Length_range = (90, 150) # init range 长度的变化范围
+Length_range = (90, 90) #【LZC:我的优化】
+# Length_range = (90, 150) # init range 长度的变化范围
+# 实际上最大宽度为14像素左右
+i=0
+while i<Num_image: 
+# for i  in range(Num_image): #生成Num_image张图片
     p2 = random.random()
     if p2>0.5: #两种基本形状
         path = "[+F-F][-F]" #分叉
     else:
         path = "F" #直线
+    # path = "[-F][+F-F]"#失败
+    # path = "[+F-F][-F]"#失败
+    # path = "F"#失败
     p_vessel = random.random()
     if p_vessel>0.5:
         r1= rules
@@ -333,7 +335,7 @@ for i  in range(Num_image): #生成Num_image张图片
     iteration = np.random.randint(1,3) # 迭代次数为1或2次
     #iteration = 1
 
-    Ratio_lw_1 = np.random.uniform(Ratio_LW[0],Ratio_LW[1])
+    Ratio_lw_1 = np.random.uniform(Ratio_LW[0], Ratio_LW[1])
     Ratio_lw_2 = np.random.uniform(Ratio_LW[0], Ratio_LW[1])
 
     p = random.random()
@@ -346,28 +348,12 @@ for i  in range(Num_image): #生成Num_image张图片
     y_position = np.random.randint(Start_position_y[0],Start_position_y[1]+1)
 
     system = LSystem_vessel(path, r1, r2, r3, theta=init_theta, width=init_width, dtheta_1=dtheta_1, dtheta_2=dtheta_2, start=(x_position, y_position),length=init_length, iteration=iteration, width_1=Ratio_lw_1, width_2=Ratio_lw_2)
-    system.generate()
-    turtle.speed(0)
-    turtle.delay(0)
-    turtle.tracer(False)
-    turtle_screen = turtle.Screen()  # create graphics window
-    turtle_screen.colormode(255)
-    #ratip=1.36
-    turtle.setup(800,800)
-    turtle_screen.screensize(800, 800)
-    turtle.bgcolor(0,0,0)
-    draw_background(turtle)
-    system.draw(turtle)
-    #file_name = "./fake_lrange_vessel/"+str(i)+'.png'
-    file_name = "./fake_very_smalltheta/"+str(i)+'2D.png'
-    tsimg = turtle.getscreen()
-    tsimg.getcanvas().postscript(file="work_vessel.eps")
-    im = Image.open("work_vessel.eps")
-    out = im.resize((512,512))
-    #out = im
-    im_array = np.array(out)
-    print("im_array",im_array.shape)
-    out.save(file_name)
-    turtle.reset()
-    system.img.save("./fake_very_smalltheta/001-"+str(i)+'3D.png')
+    sentence=system.generate()
+    if len(sentence)<20:
+        print("sentence is too short (len="+str(len(sentence))+")",sentence)
+        continue
+    system.draw()
+    saved=system.img.save("./fake_very_smalltheta/013-"+str(i)+'-3D.png')
+    if saved:
+        i=i+1
     # exit(0)
