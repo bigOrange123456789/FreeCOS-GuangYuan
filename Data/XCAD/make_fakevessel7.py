@@ -318,7 +318,7 @@ path = "[+F-F][-F]" #path变量应该是目前使用的规则
 print('path:',path)
 # 前期F多后期分支多
 
-Num_image = 150 # 8 # 25 #生成图片的数量
+Num_image = 1621 # 150 # 8 # 25 #生成图片的数量
 Start_theta = (-0,0) # 初始方向为0 # 0为水平向右
 Start_theta = (20,120) # 【根据论文】初始角度方向为20~120
 Start_theta_2 = (0,0)
