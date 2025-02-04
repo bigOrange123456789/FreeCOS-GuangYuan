@@ -26,6 +26,18 @@ def progressFile(name,color):
     max_f1_value1 = df['f1'].max()
     plt.axhline(y=max_f1_value1, color=color, linestyle='--', alpha=0.6)
 
+    # 计算最优结果之后的F1分数的均值和标准差
+    max_f1_epoch = df.loc[df['f1'].idxmax(), 'epoch']
+    remaining_epochs = df[df['epoch'] > max_f1_epoch]
+    mean_f1 = remaining_epochs['f1'].mean()
+    std_f1 = remaining_epochs['f1'].std()
+
+    # 在图中添加均值和标准差的注释
+    plt.text(max_f1_epoch + 1, mean_f1, 
+            f'Max F1: {max_f1_value1:.4f}\nMean F1: {mean_f1:.4f}\nStd F1: {std_f1:.4f}', 
+            verticalalignment='center', horizontalalignment='left', 
+            color=color, fontsize=10, bbox=dict(facecolor='white', alpha=1))
+
 if True:
     ['rgbcmyk','orange','purple']
     # progressFile("FreeCOS-GuangYuan01",'r')
@@ -38,7 +50,7 @@ if True:
     # progressFile("FreeCOS-GuangYuan09",'g')
     # progressFile("FreeCOS-GuangYuan10",'b')
     # progressFile("FreeCOS-GuangYuan12",'b')
-    progressFile("FreeCOS-GuangYuan11",'k')
+    progressFile("FreeCOS-GuangYuan14",'k')
     plt.title('y:F1 x:epoch')  # 设置标题
     plt.xlabel('Epoch')  # 设置横坐标标签
     plt.ylabel('F1 Score')  # 设置纵坐标标签
