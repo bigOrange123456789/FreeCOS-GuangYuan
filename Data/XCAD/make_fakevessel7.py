@@ -84,7 +84,7 @@ class Img():
     
     def getLight(self):
         light0 = 1
-        delta = random.uniform(0.009, 0.0012) # delta = 0.01 # 0.1 # 0.02 # 0.01
+        delta = random.uniform(0.009, 0.0012) # delta = 0.01 # 0.1 # 0.02 # 0.01 #感觉这里应该是一个错误的BUG
         self.light=light0*np.exp(-1*self.thickness*delta)
         return self.light
 
