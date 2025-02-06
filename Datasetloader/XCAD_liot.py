@@ -390,6 +390,27 @@ class DatasetXCAD_aug(data.Dataset):
         # 1.将血管添加到背景中：对应元素相称
         # background_array = np.array(background_img)  #背景 <PIL.Image.Image> -> <numpy.ndarray>
         background_array = np.asarray(background_img, np.float32)  # 背景 <PIL.Image.Image> -> <numpy.ndarray>
+        def dePhase(img): #用于去除图片中的傅里叶相位
+            img = np.expand_dims(img, axis=2) # (512, 512) -> (512, 512, 1)
+            img = img.transpose((2, 0, 1)) # 通过转置操作，改变维度顺序
+            
+            fft_trg_np = np.fft.fft2( img, axes=(-2, -1) )# 傅里叶变换
+
+            # extract amplitude and phase of both ffts
+            amp, pha = np.abs(fft_trg_np), np.angle(fft_trg_np)
+            pha = np.zeros_like(pha)
+
+            # mutated fft of source
+            fft_src_ = amp * np.exp( 1j * pha )
+
+            # 逆傅里叶变换 # get the mutated image
+            src_in_trg = np.fft.ifft2( fft_src_, axes=(-2, -1) )
+            src_in_trg = np.real(src_in_trg) # 从复数数组中提取实部。
+
+            img_FDA = np.clip(src_in_trg, 0, 255.)#应该是限制像素的最小值为0、最大值为255
+            img_FDA = np.squeeze(img_FDA,axis = 0) # (1, 512, 512) -> (512, 512)
+            return img_FDA
+        background_array=dePhase(background_array)
         im_src = np.asarray(img, np.float32)  #血管 <PIL.Image.Image> -> <numpy.ndarray> #转换为NumPy，并且指定类型
         background_array=background_array/255.
         im_src          =im_src/255.
