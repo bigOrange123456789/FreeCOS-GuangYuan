@@ -301,6 +301,26 @@ class Test_lzc():
         for i in range(N):
             print("test",i)
             self.deVessel(im_trg,i*2,'./temp/t/'+str(i)+'.png')
+    def switch(self,img_name,background_name):
+        img = self.read_img(img_name) # 读取人工血管图
+        anno_mask = self.read_mask(img_name) # 读取人工血管的标签图
+        background_img = self.read_background(background_name) #背景图(真实造影图) # <PIL.Image.Image>
+
+        # 1.FDA：在人工血管图中添加背景
+        background_array = np.array(background_img) # <numpy.ndarray> #将图片由'PIL.Image.Image'格式转化为numpy格式
+        im_src = np.asarray(img, np.float32) # <PIL.Image.Image> -- <numpy.ndarray> #转换为NumPy，并且指定类型
+
+        im_trg = np.asarray(background_array, np.float32) #转化前后类型都是<numpy.ndarray> (512, 512)
+        im_src = np.expand_dims(im_src, axis=2) # (512, 512) -> (512, 512, 1) #增加一个维度
+        im_trg = np.expand_dims(im_trg, axis=2) # (512, 512) -> (512, 512, 1)
+
+        im_src = im_src.transpose((2, 0, 1)) #  (512, 512, 1) -> (1, 512, 512)
+        im_trg = im_trg.transpose((2, 0, 1)) # 通过转置操作，改变维度顺序
+        src_in_trg = FDA_source_to_target_np(im_src, im_trg, L=0.3) #源图片是人工血管、目标图片是背景图
+        img_FDA = np.clip(src_in_trg, 0, 255.)#应该是限制像素的最小值为0、最大值为255
+        img_FDA = np.squeeze(img_FDA,axis = 0) # (1, 512, 512) -> (512, 512)
+        
+
         
 class Test_lzc2():
 
@@ -571,7 +591,7 @@ class Test_lzc4():
             print("test",i)
             self.deVessel(im_trg,i,'./temp/t/'+str(i)+'.png')   
             # exit(0)
-            
+
 class Test_lzc5():
 
     def __init__(self):
