@@ -8,7 +8,6 @@
     "marginInfoNCE": false,
     "datapath": "../DataSet-images/XCAD_FreeCOS4",
     "datapath_old": ["../Dataset/XCAD","./Data/XCAD"],
-    "logname":"./FreeCOS15",
-    "logname-old":["test_XCADmodel","../DataSet-images/XCAD_FreeCOS_log/FreeCOS15"],
+    "logname":"./FreeCOS16",
     "version": "2025.02.06--18:11"
 }
