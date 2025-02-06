@@ -4,6 +4,7 @@ import cv2
 import PIL.Image as Image
 import os.path
 import torch
+import random
 
 def low_freq_mutate_np( amp_src, amp_trg, L=0.1 ):
     # print("amp_src",amp_src.shape,type(amp_src),amp_src)
@@ -699,6 +700,103 @@ class Test_lzc5():
         img_FDA_Image=Image.fromarray((img_FDA).astype('uint8')).convert('L')
         img_FDA_Image.save("test.png", format='PNG')
     
+class Test_lzc6():
+    def save(self,img,path):
+        img_FDA_Image=Image.fromarray((img).astype('uint8')).convert('L')
+        img_FDA_Image.save(path, format='PNG')
 
-Test_lzc4()
+    def __init__(self):
+        root="../../DataSet-images/XCAD_FreeCOS/train/"
+        self.img_path        = os.path.join(root, "fake_grayvessel_width")
+        self.background_path = os.path.join(root, "img")
+        self.ann_path        = os.path.join(root, "fake_gtvessel_width")
+        
+        # background_img = Image.open(os.path.join(self.background_path, "000_PPA_44_PSA_00_8.png")).convert('L') #背景图(真实造影图) # <PIL.Image.Image>
+        background_img = Image.open(os.path.join(self.background_path, "011_PPA_44_PSA_-28_3.png")).convert('L') #背景图(真实造影图) # <PIL.Image.Image>
+        background_array = np.array(background_img) # <numpy.ndarray> #将图片由'PIL.Image.Image'格式转化为numpy格式
+        im_trg = np.asarray(background_array, np.float32) #转化前后类型都是<numpy.ndarray> (512, 512)
+
+        img_FDA=self.dePhase2(im_trg)
+        print(img_FDA.shape,type(img_FDA))
+        print(self.is_up_down_symmetric(img_FDA))
+        print(self.is_left_right_symmetric(img_FDA))
+        print(self.is_symmetric(img_FDA))
+        # img_FDA_Image=Image.fromarray((img_FDA).astype('uint8')).convert('L')
+        # img_FDA_Image.save("test.png", format='PNG')
+        self.save(img_FDA,"test.png")
+        img_FDA2=np.flipud(img_FDA) # 沿水平轴翻转数组
+        self.save(img_FDA2,"test2.png")
+        img_FDA3 = np.fliplr(img_FDA2) # 沿垂直轴翻转数组
+        self.save(img_FDA3,"test3.png")
+
+    
+    def dePhase2(self,img):
+        w, h=img.shape # 使用cv2.resize调整形状为(1024, 1024)，使用双线性插值 
+        img = cv2.resize(img, (2*w, 2*h), interpolation=cv2.INTER_LINEAR)
+
+        img = np.expand_dims(img, axis=2) # (512, 512) -> (512, 512, 1)
+        img = img.transpose((2, 0, 1)) # 通过转置操作，改变维度顺序
+        
+        # 傅里叶变换 # get fft of both source and target
+        fft_trg_np = np.fft.fft2( img, axes=(-2, -1) )
+
+        # extract amplitude and phase of both ffts
+        amp, pha = np.abs(fft_trg_np), np.angle(fft_trg_np)
+        pha = np.zeros_like(pha)
+
+        # mutated fft of source
+        fft_src_ = amp * np.exp( 1j * pha )
+
+        # 逆傅里叶变换 # get the mutated image
+        src_in_trg = np.fft.ifft2( fft_src_, axes=(-2, -1) )
+        src_in_trg = np.real(src_in_trg) # 从复数数组中提取实部。
+
+        img_FDA = np.clip(src_in_trg, 0, 255.)#应该是限制像素的最小值为0、最大值为255
+        img_FDA = np.squeeze(img_FDA,axis = 0) # (1, 512, 512) -> (512, 512)
+
+        img_FDA = img_FDA[:w, :h]
+        if np.random.random() > 0.5: img_FDA = np.fliplr(img_FDA) # 沿水平轴翻转数组
+        if np.random.random() > 0.5: img_FDA = np.flipud(img_FDA) # 沿水平轴翻转数组
+
+        return img_FDA
+    
+    def dePhase(self,img):
+        img = np.expand_dims(img, axis=2) # (512, 512) -> (512, 512, 1)
+        img = img.transpose((2, 0, 1)) # 通过转置操作，改变维度顺序
+        
+        # 傅里叶变换 # get fft of both source and target
+        fft_trg_np = np.fft.fft2( img, axes=(-2, -1) )
+
+        # extract amplitude and phase of both ffts
+        amp, pha = np.abs(fft_trg_np), np.angle(fft_trg_np)
+        pha = np.zeros_like(pha)
+
+        # mutated fft of source
+        fft_src_ = amp * np.exp( 1j * pha )
+
+        # 逆傅里叶变换 # get the mutated image
+        src_in_trg = np.fft.ifft2( fft_src_, axes=(-2, -1) )
+        src_in_trg = np.real(src_in_trg) # 从复数数组中提取实部。
+
+        img_FDA = np.clip(src_in_trg, 0, 255.)#应该是限制像素的最小值为0、最大值为255
+        img_FDA = np.squeeze(img_FDA,axis = 0) # (1, 512, 512) -> (512, 512)
+        return img_FDA
+    
+    def is_up_down_symmetric(self,array): # 判断是否上下对称
+        flipped_ud = np.flipud(array) # 沿水平轴翻转数组
+        return np.allclose(array, flipped_ud) # 比较原数组与翻转后的数组是否相等
+
+    def is_left_right_symmetric(self,array): # 判断是否左右对称
+        flipped_lr = np.fliplr(array) # 沿垂直轴翻转数组
+        return np.allclose(array, flipped_lr) # 比较原数组与翻转后的数组是否相等
+    
+    def is_symmetric(self,array0): # 判断是否左右对称
+        array1 = np.fliplr(array0) # 沿垂直轴翻转数组
+        array2 = np.flipud(array1) # 沿水平轴翻转数组
+        return np.allclose(array0, array2) # 比较原数组与翻转后的数组是否相等
+            
+        
+ 
+
+Test_lzc6()
 

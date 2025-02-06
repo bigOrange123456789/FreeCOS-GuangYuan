@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import re
 
-indicatorFlag='total_loss'
+indicatorFlag='f1'
 assert indicatorFlag in ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
 # 定义一个函数，用于从字符串中提取数值部分并转换为浮点数
 def extract_float_from_tensor_string(tensor_string):
@@ -57,18 +57,17 @@ def progressFile(name,color):
             color=color, fontsize=10, bbox=dict(facecolor='white', alpha=1))
 
 if True:
-    ['rgbcmyk','orange','purple']
     progressFile("FreeCOS-GuangYuan01",'r')
     # progressFile("FreeCOS-GuangYuan02",'g')
     # progressFile("FreeCOS-GuangYuan03",'b')
     # progressFile("FreeCOS-GuangYuan04",'c')
-    progressFile("FreeCOS-GuangYuan05",'m')
+    # progressFile("FreeCOS-GuangYuan05",'m')
     # progressFile("FreeCOS-GuangYuan06",'y') # 错误
     # progressFile("FreeCOS-GuangYuan07",'k')
     # progressFile("FreeCOS-GuangYuan09",'g')
     # progressFile("FreeCOS-GuangYuan10",'b')
-    # progressFile("FreeCOS-GuangYuan13",'b')
-    # progressFile("FreeCOS-GuangYuan14",'k')
+    progressFile("FreeCOS-GuangYuan14",'g')
+    progressFile("FreeCOS-GuangYuan15",'b')
     plt.title('y:'+indicatorFlag+' x:epoch')  # 设置标题
     plt.xlabel('Epoch')  # 设置横坐标标签
     plt.ylabel(indicatorFlag+' Score')  # 设置纵坐标标签
