@@ -2,9 +2,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import re
 
-indicatorFlag='recall'
+indicatorFlag='total_loss'
+assert indicatorFlag in ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
 # 定义一个函数，用于从字符串中提取数值部分并转换为浮点数
 def extract_float_from_tensor_string(tensor_string):
+    if not isinstance(tensor_string, str):
+        return tensor_string
     # 使用正则表达式提取数值部分
     match = re.search(r"tensor\(([^,]+)", tensor_string)
     if match:
@@ -23,8 +26,7 @@ def progressFile(name,color):
     Index(['epoch', 'total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC'], dtype='object')
     '''
     
-    if False:
-        df[indicatorFlag] = df[indicatorFlag].apply(extract_float_from_tensor_string)
+    df[indicatorFlag] = df[indicatorFlag].apply(extract_float_from_tensor_string)
 
     # 绘制折线图
     # plt.figure(figsize=(10, 6))  # 设置图形大小
