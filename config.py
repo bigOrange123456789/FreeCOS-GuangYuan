@@ -76,19 +76,20 @@ C.cps_weight = 6
 
 ''' Our New Setting(我们自己的设置) '''
 # C.idxBatchPrint = C_["idxBatchPrint"]#不再每个idx都输出
-#1.
+#1.是否使用通过体积渲染将血管添加到背景上
 C.vessel3D = C_["vessel3D"] #使用合成的3D血管/使用合成的2D血管
 C.dePhase=C_["dePhase"]#将合成的3D血管添加到背景图之前，需要对背景图去噪声(傅里叶相位) #{0不去噪，1去傅里叶相位，2去傅里叶相位+去对称}
-#2.
+#2.是否使用不平衡损失
 C.ASL = True #C_["ASL"] #不平衡损失/加权BCE
 # gamma_neg=0, gamma_pos=0 的时候应该就相当于C.ASL = False
 C.gamma_neg=C_["ASL"]["gamma_neg"]
 C. gamma_pos=C_["ASL"]["gamma_pos"]
-#3.
+#3.是否使用大间隔对比学习
 C.marginInfoNCE = C_['marginInfoNCE']
-#4.
-C.pseudo_label = C_["pseudo_label"]#是否使用伪标签机制
-
+#4.是否使用伪标签机制
+C.pseudo_label = C_["pseudo_label"]
+#5.是否使用连通性损失
+C.connectivityLoss = C_["connectivityLoss"]
 
 """Image Config"""
 C.num_classes = 1

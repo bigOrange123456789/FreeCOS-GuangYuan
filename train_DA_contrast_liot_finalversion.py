@@ -25,6 +25,7 @@ from base_model.discriminator import PredictDiscriminator, PredictDiscriminator_
 
 import numpy as np
 from PIL import Image
+from skimage import measure
 
 def asymmetric_loss(x, y, clip=0.05, eps=1e-8, disable_torch_grad_focal_loss=True):
 # def asymmetric_loss(x, y, gamma_neg=4, gamma_pos=0, clip=0.05, eps=1e-8, disable_torch_grad_focal_loss=True):
@@ -141,7 +142,90 @@ class BCELoss_lzc(nn.Module):
 
         return -loss.mean()
 
+class ConnectivityAnalyzer:
+    def __init__(
+            self,
+            mask_tensor
+    ):
+        self.mask_tensor=mask_tensor
+        self.allObj=torch.where(mask_tensor > 0.5, torch.ones_like(mask_tensor),
+                                  torch.zeros_like(mask_tensor))
+        self.mainObj=self.getMainObj(self.allObj)
+    def connectivityLoss(self):
+        # score_all=mask_tensor*self.getAllObj(mask_tensor)
+        # score_main=mask_tensor*self.getMainObj(mask_tensor)
+        score_all = self.mask_tensor * self.allObj
+        score_main = self.mask_tensor * self.mainObj
+        def compute(m):
+            # 计算每张图片的像素和
+            # 由于每张图片是单通道的，我们直接对最后一个两个维度求和
+            pixel_sums = m.sum(dim=(2, 3))  # shape 将变为 [4, 1]
 
+            # 由于 pixel_sums 的形状是 [4, 1]，我们可以通过 squeeze() 方法去掉单通道维度
+            # 这不是必需的，但可以使后续操作更清晰
+            pixel_sums_squeezed = pixel_sums.squeeze(1)  # shape 变为 [4]
+
+            # 计算所有图片像素和的平均值
+            return pixel_sums_squeezed.mean()  # 得到一个标量
+        score_all  = compute(score_all)
+        score_main = compute(score_main)
+        eps=1e-8
+        return score_all/(score_main+eps)
+    def getAllObj(self, mask_tensor):
+        return torch.where(mask_tensor > 0.5, torch.ones_like(mask_tensor),
+                                     torch.zeros_like(mask_tensor))
+
+    def getMainObj(self, mask_tensor):
+        mask_tensor=mask_tensor.cpu()
+        # mask_tensor = torch.where(mask_tensor > 0.5, torch.ones_like(mask_tensor),
+        #                              torch.zeros_like(mask_tensor))
+
+        # 将PyTorch张量转换为NumPy数组，保持单通道维度
+        mask_array = mask_tensor.numpy().astype(np.uint8)
+
+        # 创建一个空列表来存储处理后的MASK，保持与输入相同的shape
+        processed_masks = []
+
+        # 遍历每张MASK图片（保持单通道维度）
+        for mask in mask_array:
+            # 挤压掉单通道维度以进行连通性检测，但之后要恢复
+            mask_squeeze = mask.squeeze()
+            if mask_squeeze.sum()==0:#这个对象为空
+                processed_masks.append(mask)
+                continue
+
+            # 进行连通性检测，返回标记数组和连通区域的数量
+            labeled_array, num_features = measure.label(mask_squeeze, connectivity=1, return_num=True)
+
+            # 创建一个字典来存储每个标签的像素数
+            region_sizes = {}
+            for region in range(1, num_features + 1):
+                # 计算每个连通区域的像素数
+                region_size = np.sum(labeled_array == region)
+                region_sizes[region] = region_size
+
+            # 找到像素数最多的连通区域及其标签
+            max_region = max(region_sizes, key=region_sizes.get)
+
+            # 创建一个新的MASK，只保留像素数最多的连通区域，并恢复单通道维度
+            processed_mask = np.zeros_like(mask)
+            processed_mask[0, labeled_array == max_region] = 1
+
+            # 将处理后的MASK添加到列表中
+            processed_masks.append(processed_mask)
+
+        # 将处理后的MASK列表转换回PyTorch张量
+        processed_masks_tensor = torch.tensor(processed_masks, dtype=torch.float32)
+
+        # 检查shape是否保持不变
+        assert processed_masks_tensor.shape == mask_tensor.shape, "Processed masks tensor shape does not match original."
+
+        if torch.cuda.is_available():# 检查CUDA是否可用
+            device = torch.device("cuda")  # 创建一个表示GPU的设备对象
+        else:
+            device = torch.device("cpu")  # 如果没有GPU，则使用CPU
+
+        return processed_masks_tensor.to(device)
 
 def create_csv(path, csv_head):
     with open(path, 'w', newline='') as f:
@@ -384,6 +468,16 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
             loss_pseudo = 0.01 * criterion_bce2(pred_target, gts_pseudo)
             loss_adv = loss_adv + loss_pseudo
 
+        if config.connectivityLoss:#使用连通损失
+            loss_conn1 = ConnectivityAnalyzer(pred_sup_l).connectivityLoss() #合成监督
+            loss_conn2 = ConnectivityAnalyzer(pred_target).connectivityLoss() #无监督
+            loss_conn = loss_conn1 + loss_conn2
+            if config.pseudo_label and isFirstEpoch == False:
+                loss_conn3 = ConnectivityAnalyzer(pred_target).connectivityLoss() #伪监督
+                loss_conn = loss_conn + loss_conn3
+            # print("\t",loss_adv , loss_conn)
+            loss_adv = loss_adv + loss_conn*0.1
+
         loss_adv.backward(retain_graph=False) # #计算分割网络参数的梯度,并累加到网络参数的.grad属性中
         # if hasattr(Segment_model, 'learnable_scalar'):
         #     print('learnable_scalar2 ', Segment_model.learnable_scalar, Segment_model.learnable_scalar.grad)
@@ -540,6 +634,7 @@ def evaluate(epoch, Segment_model, predict_Discriminator_model, val_target_loade
         val_loss_sup = val_sum_loss_sup / len(val_target_loader)
         return val_mean_f1, val_mean_AUC, val_mean_pr, val_mean_re, val_mean_acc, val_mean_sp, val_mean_jc, val_loss_sup
 
+
 class Predictor():
     def __init__(
         self,
@@ -550,13 +645,52 @@ class Predictor():
         self.Segment_model=Segment_model
         self.dataloader_val=dataloader_val
         self.dataloader_unsup=dataloader_unsupervised
-        if False:  # 加载保存的状态字典
+        if True:  # 加载保存的状态字典
             self.loadParm()
 
     def loadParm(self):
         checkpoint_path = 'logs/best_Segment.pt'  # os.path.join(cls.logpath, 'best_Segment.pt')
         checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))  # 如果模型是在GPU上训练的，这里指定为'cpu'以确保兼容性
         self.Segment_model.load_state_dict(checkpoint['state_dict'])  # 提取模型状态字典并赋值给模型
+
+    def is_pattern_connected(self, mask_tensor):
+        # 将PyTorch张量转换为NumPy数组，保持单通道维度
+        mask_array = mask_tensor.numpy().astype(np.uint8)
+
+        # 创建一个空列表来存储处理后的MASK，保持与输入相同的shape
+        processed_masks = []
+
+        # 遍历每张MASK图片（保持单通道维度）
+        for mask in mask_array:
+            # 挤压掉单通道维度以进行连通性检测，但之后要恢复
+            mask_squeeze = mask.squeeze()
+
+            # 进行连通性检测，返回标记数组和连通区域的数量
+            labeled_array, num_features = measure.label(mask_squeeze, connectivity=1, return_num=True)
+
+            # 创建一个字典来存储每个标签的像素数
+            region_sizes = {}
+            for region in range(1, num_features + 1):
+                # 计算每个连通区域的像素数
+                region_size = np.sum(labeled_array == region)
+                region_sizes[region] = region_size
+
+            # 找到像素数最多的连通区域及其标签
+            max_region = max(region_sizes, key=region_sizes.get)
+
+            # 创建一个新的MASK，只保留像素数最多的连通区域，并恢复单通道维度
+            processed_mask = np.zeros_like(mask)
+            processed_mask[0, labeled_array == max_region] = 1
+
+            # 将处理后的MASK添加到列表中
+            processed_masks.append(processed_mask)
+
+        # 将处理后的MASK列表转换回PyTorch张量
+        processed_masks_tensor = torch.tensor(processed_masks, dtype=torch.float32)
+
+        # 检查shape是否保持不变
+        assert processed_masks_tensor.shape == mask_tensor.shape, "Processed masks tensor shape does not match original."
+        return processed_masks_tensor
 
     def inference(self, loader , path ) :
         if torch.cuda.device_count() > 1:
@@ -570,8 +704,12 @@ class Predictor():
                 val_img_name = minibatch['img_name']  # 图片名称
                 val_imgs = val_imgs.cuda(non_blocking=True)  # NCHW
                 val_pred_sup_l, sample_set_unsup, _ = self.Segment_model(val_imgs, mask=None, trained=False, fake=False)
-                val_pred_sup_l = torch.where(val_pred_sup_l > 0.5, torch.ones_like(val_pred_sup_l),
-                                             torch.zeros_like(val_pred_sup_l))
+                if True:
+                    val_pred_sup_l = torch.where(val_pred_sup_l > 0.5, torch.ones_like(val_pred_sup_l),
+                         torch.zeros_like(val_pred_sup_l))
+                else:
+                    val_pred_sup_l = ConnectivityAnalyzer(val_pred_sup_l).mainObj# val_pred_sup_l=self.is_pattern_connected(val_pred_sup_l.cpu())
+
                 val_pred_sup_l = val_pred_sup_l * 255
 
                 # 将tensor转换为numpy数组，并调整形状以匹配PIL的输入要求（N, H, W）
