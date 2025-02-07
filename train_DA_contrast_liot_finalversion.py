@@ -451,8 +451,8 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
                     + ' loss_ce=%.4f' % loss_ce \
                     + ' loss_dice=%.4f' % loss_dice.item() \
                     + ' loss_contrast=%.4f' % loss_contrast_sum
-        if idx%config.idxBatchPrint==0:
-            pbar.set_description(print_str, refresh=False) # 输出本batch的各项损失
+        # if idx%config.idxBatchPrint==0:
+        pbar.set_description(print_str, refresh=False) # 输出本batch的各项损失
 
         sum_totalloss = sum_totalloss + sum_Dtar_loss + sum_Dsrc_loss + sum_adv_loss + sum_loss_seg + sum_contrastloss
         # 这个单batch的总损失在计算后没有被使用

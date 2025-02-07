@@ -63,7 +63,7 @@ class DatasetXCAD_aug(data.Dataset):
 
     def __init__(self, benchmark, datapath, split, img_mode, img_size,supervised):
         super(DatasetXCAD_aug, self).__init__()
-        self.isFirstEpoch=True #还没有保存了伪标签数据
+        self.isFirstEpoch=False #还没有保存了伪标签数据
         self.split = 'val' if split in ['val', 'test'] else 'train'
         self.benchmark = benchmark # benchmark = XCAD_LIOT
         assert self.benchmark == 'XCAD_LIOT'
@@ -117,6 +117,7 @@ class DatasetXCAD_aug(data.Dataset):
 
     def __getitem__(self, index):
         img_name = self.img_metadata[index] # get the name of fakevessel(train-supervised), img(test-supervised), img(train-unsupervised)
+        supervised_pseudo=config.pseudo_label and self.isFirstEpoch==False
         if self.supervised=='supervised' and self.split == 'train': #有监督的训练
             idx_background = np.random.randint(len(self.background_metadata))  # background(train-supervised)
             background_name = self.background_metadata[idx_background]  # 随机抽取一张背景图(造影图)
@@ -135,10 +136,10 @@ class DatasetXCAD_aug(data.Dataset):
         else: #无监督的训练
             img, org_img_size = self.load_frame_unsupervised(img_name) #返回：造影图、尺寸
             anno_mask = None # 无标签
-            if config.pseudo_label and self.isFirstEpoch==False:
+            if supervised_pseudo:
                 anno_mask = self.read_mask(img_name)
 
-        if self.split == 'train' and self.supervised=='supervised': #有监督的训练
+        if (self.split == 'train' and self.supervised=='supervised') or supervised_pseudo: # 有监督 or 伪监督
             img, anno_mask = self.augmentation_aff(img, anno_mask) #翻转、旋转、调色
         elif self.split == 'train' and self.supervised!='supervised': #无监督的训练
             img, anno_mask = self.augmentation_unsupervised(img,anno_mask) #翻转、旋转、调色

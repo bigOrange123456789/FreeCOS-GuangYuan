@@ -75,7 +75,7 @@ C.bn_momentum = 0.1
 C.cps_weight = 6
 
 ''' Our New Setting(我们自己的设置) '''
-C.idxBatchPrint = C_["idxBatchPrint"]#不再每个idx都输出
+# C.idxBatchPrint = C_["idxBatchPrint"]#不再每个idx都输出
 #1.
 C.vessel3D = C_["vessel3D"] #使用合成的3D血管/使用合成的2D血管
 C.dePhase=C_["dePhase"]#将合成的3D血管添加到背景图之前，需要对背景图去噪声(傅里叶相位) #{0不去噪，1去傅里叶相位，2去傅里叶相位+去对称}

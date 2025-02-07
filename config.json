@@ -3,7 +3,6 @@
     "batch_size": 4,
     "batch_size_val": 4,
     "batch_size_old": [4,8,20,40,80],
-    "idxBatchPrint": 400,
     "pseudo_label": true,
 
     "vessel3D": true,
