@@ -42,4 +42,4 @@ class CSDataset:
 
         dataloader = DataLoader(dataset, batch_size=bsz, shuffle=shuffle, num_workers=nworker)
 
-        return dataloader
+        return dataloader,dataset

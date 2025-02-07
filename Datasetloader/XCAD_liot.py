@@ -63,6 +63,7 @@ class DatasetXCAD_aug(data.Dataset):
 
     def __init__(self, benchmark, datapath, split, img_mode, img_size,supervised):
         super(DatasetXCAD_aug, self).__init__()
+        self.isFirstEpoch=True #还没有保存了伪标签数据
         self.split = 'val' if split in ['val', 'test'] else 'train'
         self.benchmark = benchmark # benchmark = XCAD_LIOT
         assert self.benchmark == 'XCAD_LIOT'
@@ -87,7 +88,7 @@ class DatasetXCAD_aug(data.Dataset):
                 self.img_metadata = self.load_metadata_testsupervised() #test_img.txt
         else: # 无监督的训练
             self.img_path = os.path.join(datapath, 'train','img') #./Data/XCAD/train/img
-
+            self.ann_path = os.path.join('logs', config.logname + ".log", "unsup_temp") #伪标签
             self.img_metadata = self.load_metadata_background()  #train_backvessel.txt
         self.norm_img = transforms.Compose([
             transforms.ToTensor()#将数据由HWC255格式 转换为CHW0～1的格式
@@ -134,6 +135,8 @@ class DatasetXCAD_aug(data.Dataset):
         else: #无监督的训练
             img, org_img_size = self.load_frame_unsupervised(img_name) #返回：造影图、尺寸
             anno_mask = None # 无标签
+            if config.pseudo_label and self.isFirstEpoch==False:
+                anno_mask = self.read_mask(img_name)
 
         if self.split == 'train' and self.supervised=='supervised': #有监督的训练
             img, anno_mask = self.augmentation_aff(img, anno_mask) #翻转、旋转、调色
@@ -178,6 +181,12 @@ class DatasetXCAD_aug(data.Dataset):
                 'img_name': img_name, # 图片名称
                 'img': img            # 图片数据
             }
+            if config.pseudo_label and self.isFirstEpoch == False:
+                batch = {
+                    'img_name': img_name,   # 图片名称
+                    'anno_mask': anno_mask, # 伪标签数据
+                    'img': img  # 图片数据
+                }
             return batch
 
     def augmentation(self, img, anno_mask, anno_boundary, ignore_mask):

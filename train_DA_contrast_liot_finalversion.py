@@ -205,7 +205,7 @@ def check_feature(sample_set_sup, sample_set_unsup):
 
 def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervised, dataloader_unsupervised,
           optimizer_l, optimizer_D, lr_policy, lrD_policy, criterion, total_iteration, average_posregion,
-          average_negregion):
+          average_negregion,isFirstEpoch):
     '''
     epoch,                      已完成的批次数     0
     Segment_model,              分割模型
@@ -323,7 +323,7 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
         # }
         unsup_imgs = unsup_imgs.cuda(non_blocking=True) # unsup_imgs:[4, 4, 256, 256]
 
-        # Start train fake vessel 开始训练假血管
+        # Start train fake vessel 开始训练合成血管
         for param in predict_Discriminator_model.parameters():
             param.requires_grad = False #首先优化分割器、不优化判别器
         pred_sup_l,  sample_set_sup,   flag_sup = Segment_model(imgs, mask=gts, trained=True, fake=True)
@@ -364,12 +364,26 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
         # if hasattr(Segment_model, 'learnable_scalar'):
         #     print('learnable_scalar1 ', Segment_model.learnable_scalar,Segment_model.learnable_scalar.grad)
         weight_contrast = 0.04  #对比损失的权重 # 0.04 for NCE allpixel/0.01maybe same as dice
-        loss_seg = loss_dice + loss_ce #(当前batch的)伪监督损失
-        sum_loss_seg += loss_seg.item() #(本次的epoch的)伪监督损失
+        loss_seg = loss_dice + loss_ce #(当前batch的)合成监督损失
+        sum_loss_seg += loss_seg.item() #(本次的epoch的)合成监督损失
         loss_contrast_sum = weight_contrast * (loss_contrast) #(当前batch的)加权后的对比损失
         sum_contrastloss += loss_contrast_sum #(本次的epoch的)加权后的对比损失
 
         loss_adv = (loss_adv_target * damping) / 4 + loss_dice + loss_ce + weight_contrast * (loss_contrast) #对抗+监督+对比
+        if config.pseudo_label and isFirstEpoch==False:
+            gts_pseudo = unsup_minibatch['anno_mask']#原始数据
+            gts_pseudo = gts_pseudo.cuda(non_blocking=True)
+            with torch.no_grad():  # 禁用梯度计算
+                weight_mask = gts_pseudo.clone().detach()
+                weight_mask[weight_mask == 0] = 0.1  # 值为0的元素设为0.1
+                weight_mask[weight_mask == 1] = 1  # 值为1的元素保持不变
+                criterion_bce2 = BCELoss_lzc(
+                        weight=weight_mask,
+                        gamma_pos=config.gamma_pos,
+                        gamma_neg=config.gamma_neg)
+            loss_pseudo = 0.01 * criterion_bce2(pred_target, gts_pseudo)
+            loss_adv = loss_adv + loss_pseudo
+
         loss_adv.backward(retain_graph=False) # #计算分割网络参数的梯度,并累加到网络参数的.grad属性中
         # if hasattr(Segment_model, 'learnable_scalar'):
         #     print('learnable_scalar2 ', Segment_model.learnable_scalar, Segment_model.learnable_scalar.grad)
@@ -526,40 +540,57 @@ def evaluate(epoch, Segment_model, predict_Discriminator_model, val_target_loade
         val_loss_sup = val_sum_loss_sup / len(val_target_loader)
         return val_mean_f1, val_mean_AUC, val_mean_pr, val_mean_re, val_mean_acc, val_mean_sp, val_mean_jc, val_loss_sup
 
-def inference(Segment_model, val_target_loader ):
-    if False:# 加载保存的状态字典
-        checkpoint_path = 'logs/best_Segment.pt' #os.path.join(cls.logpath, 'best_Segment.pt')
+class Predictor():
+    def __init__(
+        self,
+        Segment_model,
+        dataloader_val,
+        dataloader_unsupervised
+    ):
+        self.Segment_model=Segment_model
+        self.dataloader_val=dataloader_val
+        self.dataloader_unsup=dataloader_unsupervised
+        if True:  # 加载保存的状态字典
+            self.loadParm()
+
+    def loadParm(self):
+        checkpoint_path = 'logs/best_Segment.pt'  # os.path.join(cls.logpath, 'best_Segment.pt')
         checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))  # 如果模型是在GPU上训练的，这里指定为'cpu'以确保兼容性
-        Segment_model.load_state_dict(checkpoint['state_dict'])# 提取模型状态字典并赋值给模型
+        self.Segment_model.load_state_dict(checkpoint['state_dict'])  # 提取模型状态字典并赋值给模型
 
-    if torch.cuda.device_count() > 1:
-        Segment_model.module.eval()
-    else:#将模型设置为评价模式
-        Segment_model.eval()
-    with torch.no_grad(): #不进行梯度计算
-        os.makedirs(os.path.join('logs', config.logname+".log" , "inference"), exist_ok=True)
-        for val_idx, minibatch in enumerate(val_target_loader):
-            val_imgs = minibatch['img']     #图片的梯度数据
-            val_img_name=minibatch['img_name']#图片名称
-            val_imgs = val_imgs.cuda(non_blocking=True) # NCHW
-            val_pred_sup_l, sample_set_unsup, _ = Segment_model(val_imgs, mask=None, trained=False, fake=False)
-            val_pred_sup_l = torch.where(val_pred_sup_l > 0.5, torch.ones_like(val_pred_sup_l),
+    def inference(self, loader , path ) :
+        if torch.cuda.device_count() > 1:
+            self.Segment_model.module.eval()
+        else:  # 将模型设置为评价模式
+            self.Segment_model.eval()
+        with torch.no_grad():  # 不进行梯度计算
+            os.makedirs(path, exist_ok=True)
+            for val_idx, minibatch in enumerate(loader):
+                val_imgs = minibatch['img']  # 图片的梯度数据
+                val_img_name = minibatch['img_name']  # 图片名称
+                val_imgs = val_imgs.cuda(non_blocking=True)  # NCHW
+                val_pred_sup_l, sample_set_unsup, _ = self.Segment_model(val_imgs, mask=None, trained=False, fake=False)
+                val_pred_sup_l = torch.where(val_pred_sup_l > 0.5, torch.ones_like(val_pred_sup_l),
                                              torch.zeros_like(val_pred_sup_l))
-            val_pred_sup_l = val_pred_sup_l * 255
+                val_pred_sup_l = val_pred_sup_l * 255
 
-            # 将tensor转换为numpy数组，并调整形状以匹配PIL的输入要求（N, H, W）
-            images_np = val_pred_sup_l.to('cpu').numpy().squeeze(axis=1).astype(np.uint8)
-            # 保存每张图片到本地文件
-            for i, image in enumerate(images_np):
-                # 使用PIL创建图像对象，并保存为灰度图
-                img_pil = Image.fromarray(image, mode='L')  # 'L'模式表示灰度图
-                # img_pil.save("logs/"+val_img_name[i])  # 保存图片，文件名可以根据需要调整
-                img_pil.save(os.path.join('logs', config.logname+".log" , "inference", val_img_name[i]))
-
-
-
-
-
+                # 将tensor转换为numpy数组，并调整形状以匹配PIL的输入要求（N, H, W）
+                images_np = val_pred_sup_l.to('cpu').numpy().squeeze(axis=1).astype(np.uint8)
+                # 保存每张图片到本地文件
+                for i, image in enumerate(images_np):
+                    # 使用PIL创建图像对象，并保存为灰度图
+                    img_pil = Image.fromarray(image, mode='L')  # 'L'模式表示灰度图
+                    # img_pil.save("logs/"+val_img_name[i])  # 保存图片，文件名可以根据需要调整
+                    # img_pil.save(os.path.join('logs', config.logname + ".log", "inference", val_img_name[i]))
+                    img_pil.save(os.path.join(path, val_img_name[i]))
+    def lastInference(self) :
+        path = os.path.join('logs', config.logname + ".log", "inference")
+        os.makedirs(path, exist_ok=True)
+        self.inference(self.dataloader_val, path)
+    def nextInference(self) :
+        path = os.path.join('logs', config.logname + ".log", "unsup_temp")
+        os.makedirs(path, exist_ok=True)
+        self.inference(self.dataloader_unsup, path)
 
 
 def main():
@@ -583,7 +614,7 @@ def main():
     CSDataset.initialize(datapath=config.datapath)
     print('config.datapath:',config.datapath)#"./Data/XCAD"
 
-    dataloader_supervised = CSDataset.build_dataloader(config.benchmark,  # XCAD_LIOT # benchmark的本译是基准
+    dataloader_supervised,_ = CSDataset.build_dataloader(config.benchmark,  # XCAD_LIOT # benchmark的本译是基准
                                                        config.batch_size, # 4
                                                        config.nworker,    # 8
                                                        'train',
@@ -591,7 +622,7 @@ def main():
                                                        config.img_size,   # 256
                                                        'supervised')
     # 有监督使用的数据是什么？gray中为血管的灰度图、gt中为标签。
-    dataloader_unsupervised = CSDataset.build_dataloader(config.benchmark,  # XCAD_LIOT
+    dataloader_unsupervised,dataset_unsupervised = CSDataset.build_dataloader(config.benchmark,  # XCAD_LIOT
                                                          config.batch_size, # 4
                                                          config.nworker,    # 8
                                                          'train',
@@ -600,7 +631,7 @@ def main():
                                                          'unsupervised')
     # 无监督使用的应该是img文件夹中的原始图片。
 
-    dataloader_val = CSDataset.build_dataloader(config.benchmark,       # XCAD_LIOT
+    dataloader_val,_ = CSDataset.build_dataloader(config.benchmark,       # XCAD_LIOT
                                                 config.batch_size_val,  # 1
                                                 config.nworker,         # 8
                                                 'val',
@@ -627,6 +658,8 @@ def main():
     # define the learning rate
     base_lr = config.lr      # 0.04 # 学习率
     base_lr_D = config.lr_D  # 0.04 # dropout?
+
+    predictor = Predictor(Segment_model, dataloader_val, dataloader_unsupervised)
 
     params_list_l = []
     params_list_l = group_weight(
@@ -691,11 +724,11 @@ def main():
             = train(#训练
                 epoch, Segment_model, predict_Discriminator_model, dataloader_supervised, dataloader_unsupervised,
                 optimizer_l, optimizer_D, lr_policy, lrD_policy, criterion, total_iteration, average_posregion,
-                average_negregion)
+                average_negregion, dataset_unsupervised.isFirstEpoch)
         print("train_seg_loss:{},train_loss_Dtar:{},train_loss_Dsrc:{},train_loss_adv:{},train_total_loss:{},train_loss_contrast:{}".format(
                 train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss,train_loss_contrast))
         print("train_loss_dice:{},train_loss_ce:{}".format(train_loss_dice, train_loss_ce))
-
+        
         # val_mean_f1, val_mean_pr, val_mean_re, val_mean_f1, val_mean_pr, val_mean_re,val_loss_sup
         val_mean_f1, val_mean_AUC, val_mean_pr, val_mean_re, val_mean_acc, val_mean_sp, val_mean_jc, val_loss_sup \
             = evaluate(#验证
@@ -716,11 +749,16 @@ def main():
             best_val_f1 = val_mean_f1
             Logger.save_model_f1_S(Segment_model, epoch, val_mean_f1, optimizer_l) #保存到best_Segment.pt中
             Logger.save_model_f1_T(predict_Discriminator_model, epoch, val_mean_f1, optimizer_D) #保存到best_Dis.pt中
+
         # if val_mean_AUC > best_val_AUC:
         #     best_val_AUC = val_mean_AUC
         #     Logger.save_model_f1_S(Segment_model, epoch, val_mean_AUC, optimizer_l)
         #     Logger.save_model_f1_T(predict_Discriminator_model, epoch, val_mean_AUC, optimizer_D)
-    inference(Segment_model, dataloader_val)
+        if config.pseudo_label:
+            predictor.nextInference()
+            dataset_unsupervised.isFirstEpoch=False #已经保存了伪标签数据
+
+    predictor.lastInference()# inference(Segment_model, dataloader_val)
 
 if __name__ == '__main__':
     main()
