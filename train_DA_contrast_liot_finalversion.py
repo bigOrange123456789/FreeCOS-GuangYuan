@@ -23,6 +23,9 @@ from utils.loss_function import DiceLoss, Contrastloss, ContrastRegionloss, Cont
     ContrastRegionloss_supunsup, ContrastRegionloss_NCE, ContrastRegionloss_AllNCE, ContrastRegionloss_quaryrepeatNCE, Triplet
 from base_model.discriminator import PredictDiscriminator, PredictDiscriminator_affinity
 
+import numpy as np
+from PIL import Image
+
 def asymmetric_loss(x, y, clip=0.05, eps=1e-8, disable_torch_grad_focal_loss=True):
 # def asymmetric_loss(x, y, gamma_neg=4, gamma_pos=0, clip=0.05, eps=1e-8, disable_torch_grad_focal_loss=True):
     gamma_neg=config.gamma_neg
@@ -434,7 +437,8 @@ def train(epoch, Segment_model, predict_Discriminator_model, dataloader_supervis
                     + ' loss_ce=%.4f' % loss_ce \
                     + ' loss_dice=%.4f' % loss_dice.item() \
                     + ' loss_contrast=%.4f' % loss_contrast_sum
-        pbar.set_description(print_str, refresh=False) # 输出本batch的各项损失
+        if idx%config.idxBatchPrint==0:
+            pbar.set_description(print_str, refresh=False) # 输出本batch的各项损失
 
         sum_totalloss = sum_totalloss + sum_Dtar_loss + sum_Dsrc_loss + sum_adv_loss + sum_loss_seg + sum_contrastloss
         # 这个单batch的总损失在计算后没有被使用
@@ -521,6 +525,41 @@ def evaluate(epoch, Segment_model, predict_Discriminator_model, val_target_loade
         val_mean_jc = val_sum_jc / len(val_target_loader)
         val_loss_sup = val_sum_loss_sup / len(val_target_loader)
         return val_mean_f1, val_mean_AUC, val_mean_pr, val_mean_re, val_mean_acc, val_mean_sp, val_mean_jc, val_loss_sup
+
+def inference(Segment_model, val_target_loader ):
+    if False:# 加载保存的状态字典
+        checkpoint_path = 'logs/best_Segment.pt' #os.path.join(cls.logpath, 'best_Segment.pt')
+        checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))  # 如果模型是在GPU上训练的，这里指定为'cpu'以确保兼容性
+        Segment_model.load_state_dict(checkpoint['state_dict'])# 提取模型状态字典并赋值给模型
+
+    if torch.cuda.device_count() > 1:
+        Segment_model.module.eval()
+    else:#将模型设置为评价模式
+        Segment_model.eval()
+    with torch.no_grad(): #不进行梯度计算
+        os.makedirs(os.path.join('logs', config.logname+".log" , "inference"), exist_ok=True)
+        for val_idx, minibatch in enumerate(val_target_loader):
+            val_imgs = minibatch['img']     #图片的梯度数据
+            val_img_name=minibatch['img_name']#图片名称
+            val_imgs = val_imgs.cuda(non_blocking=True) # NCHW
+            val_pred_sup_l, sample_set_unsup, _ = Segment_model(val_imgs, mask=None, trained=False, fake=False)
+            val_pred_sup_l = torch.where(val_pred_sup_l > 0.5, torch.ones_like(val_pred_sup_l),
+                                             torch.zeros_like(val_pred_sup_l))
+            val_pred_sup_l = val_pred_sup_l * 255
+
+            # 将tensor转换为numpy数组，并调整形状以匹配PIL的输入要求（N, H, W）
+            images_np = val_pred_sup_l.to('cpu').numpy().squeeze(axis=1).astype(np.uint8)
+            # 保存每张图片到本地文件
+            for i, image in enumerate(images_np):
+                # 使用PIL创建图像对象，并保存为灰度图
+                img_pil = Image.fromarray(image, mode='L')  # 'L'模式表示灰度图
+                # img_pil.save("logs/"+val_img_name[i])  # 保存图片，文件名可以根据需要调整
+                img_pil.save(os.path.join('logs', config.logname+".log" , "inference", val_img_name[i]))
+
+
+
+
+
 
 
 def main():
@@ -645,6 +684,7 @@ def main():
     val_score_path = os.path.join('logs', config.logname + '.log') + '/' + 'val_train_f1.csv'
     csv_head = ["epoch", "total_loss", "f1", "AUC", "pr", "recall", "Acc", "Sp", "JC"]
     create_csv(val_score_path, csv_head)
+    # inference(Segment_model, dataloader_val)
     for epoch in range(config.state_epoch, config.nepochs): #从state_epoch到nepochs-1 # 按照预先设定的回合数量执行，不会提前中止
         # train_loss_sup, train_loss_consis, train_total_loss
         train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss, train_loss_dice, train_loss_ce, train_loss_contrast, average_posregion, average_negregion \
@@ -655,11 +695,13 @@ def main():
         print("train_seg_loss:{},train_loss_Dtar:{},train_loss_Dsrc:{},train_loss_adv:{},train_total_loss:{},train_loss_contrast:{}".format(
                 train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss,train_loss_contrast))
         print("train_loss_dice:{},train_loss_ce:{}".format(train_loss_dice, train_loss_ce))
+
         # val_mean_f1, val_mean_pr, val_mean_re, val_mean_f1, val_mean_pr, val_mean_re,val_loss_sup
         val_mean_f1, val_mean_AUC, val_mean_pr, val_mean_re, val_mean_acc, val_mean_sp, val_mean_jc, val_loss_sup \
             = evaluate(#验证
                 epoch, Segment_model, predict_Discriminator_model, dataloader_val,
                 criterion)  # evaluate(epoch, model, val_target_loader,criterion, criterion_cps)
+
         # val_mean_f1, val_mean_AUC, val_mean_pr, val_mean_re,val_mean_acc, val_mean_sp, val_mean_jc, val_loss_sup
         data_row_f1score = [str(epoch), str(train_total_loss), str(val_mean_f1.item()), str(val_mean_AUC),
                             str(val_mean_pr.item()), str(val_mean_re.item()), str(val_mean_acc), str(val_mean_sp),
@@ -678,6 +720,7 @@ def main():
         #     best_val_AUC = val_mean_AUC
         #     Logger.save_model_f1_S(Segment_model, epoch, val_mean_AUC, optimizer_l)
         #     Logger.save_model_f1_T(predict_Discriminator_model, epoch, val_mean_AUC, optimizer_D)
+    inference(Segment_model, dataloader_val)
 
 if __name__ == '__main__':
     main()

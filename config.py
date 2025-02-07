@@ -75,6 +75,8 @@ C.bn_momentum = 0.1
 C.cps_weight = 6
 
 ''' Our New Setting(我们自己的设置) '''
+C.idxBatchPrint = C_["idxBatchPrint"]#不再每个idx都输出
+
 C.vessel3D = C_["vessel3D"] #使用合成的3D血管/使用合成的2D血管
 C.dePhase=C_["dePhase"]#将合成的3D血管添加到背景图之前，需要对背景图去噪声(傅里叶相位) #{0不去噪，1去傅里叶相位，2去傅里叶相位+去对称}
 
@@ -102,8 +104,8 @@ C.num_unsup_imgs = 1621 #XCAD
 C.lr = 0.01
 C.lr_D = 0.001
 # C.batch_size = 8
-C.batch_size = 4   
-C.batch_size_val = 1
+C.batch_size = C_["batch_size"] # 4
+C.batch_size_val = C_["batch_size_val"] # 1
 C.lr_power = 0.9
 C.momentum = 0.9
 C.weight_decay = 1e-4
