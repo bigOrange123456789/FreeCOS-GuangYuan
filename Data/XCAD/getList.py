@@ -11,9 +11,9 @@ def save_filenames_to_txt(folder_path, output_file_path):
             output_file.write(filename + '\n')
 
 # 指定文件夹路径
-folder_path = 'fake_very_smalltheta'
+folder_path = './train/vessel3D_lzc'
 # 指定输出文件路径
-output_file_path = 'list.txt'
+output_file_path = './split/train_fakevessel.txt'
 
 # 调用函数
 save_filenames_to_txt(folder_path, output_file_path)
