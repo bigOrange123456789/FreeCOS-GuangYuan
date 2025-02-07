@@ -63,7 +63,7 @@ class DatasetXCAD_aug(data.Dataset):
 
     def __init__(self, benchmark, datapath, split, img_mode, img_size,supervised):
         super(DatasetXCAD_aug, self).__init__()
-        self.isFirstEpoch=False #还没有保存了伪标签数据
+        self.isFirstEpoch=True #还没有保存了伪标签数据
         self.split = 'val' if split in ['val', 'test'] else 'train'
         self.benchmark = benchmark # benchmark = XCAD_LIOT
         assert self.benchmark == 'XCAD_LIOT'
@@ -129,30 +129,49 @@ class DatasetXCAD_aug(data.Dataset):
             if config.vessel3D:  # LZC:这部分新增的代码用于读取3D血管数据
                 img, anno_mask, org_img_size = self.load_frame_fakevessel_3D(img_name,background_name)
                 # (合成图像、合成标签)<-(合成血管图、真实造影图)
+                # print("img",type(img))
+                # print("anno_mask",type(anno_mask))
+                # exit(0)
             else: #之前的获取2D血管数据的代码
                 img, anno_mask, org_img_size = self.load_frame_fakevessel_gaussian(img_name, background_name)#(合成图像、合成标签)<-(合成血管图、真实造影图)
         elif self.supervised=='supervised' and self.split != 'train': #有监督的验证
             img, anno_mask, org_img_size = self.load_frame_aff(img_name) #返回：造影图、人工标签、尺寸
+            # print("1supervised",type(img),type(anno_mask),img.shape,anno_mask.shape)
+            # print("1supervised",anno_mask.shape)
         else: #无监督的训练
             img, org_img_size = self.load_frame_unsupervised(img_name) #返回：造影图、尺寸
             anno_mask = None # 无标签
             if supervised_pseudo:
                 anno_mask = self.read_mask(img_name)
+                # print(type(anno_mask))
+                # print(img)
+                # print("1 unsupervised",img.shape)
+                # print("1 unsupervised",type(img),type(anno_mask),anno_mask.shape)
+                # print("1 unsupervised",anno_mask.shape)
 
-        if (self.split == 'train' and self.supervised=='supervised') or supervised_pseudo: # 有监督 or 伪监督
+        if self.split == 'train' and self.supervised=='supervised': # 有监督 or 伪监督
             img, anno_mask = self.augmentation_aff(img, anno_mask) #翻转、旋转、调色
         elif self.split == 'train' and self.supervised!='supervised': #无监督的训练
-            img, anno_mask = self.augmentation_unsupervised(img,anno_mask) #翻转、旋转、调色
+            if not supervised_pseudo: #伪标签数据不进行增强（因为对伪标签数据进行增强会导致BUG）
+                img, anno_mask = self.augmentation_unsupervised(img,anno_mask) #翻转、旋转、调色
+        # if anno_mask!=None:
+        #     img, anno_mask = self.augmentation_aff(img, anno_mask) #翻转、旋转、调色
+        #     # print("1.5 ",img.shape,anno_mask.shape)
+        # else:
+        #     img, anno_mask = self.augmentation_unsupervised(img,anno_mask) #翻转、旋转、调色
 
+        # self.img_mode: crop
         if self.img_mode == 'resize' and self.split == 'train' :
             img = self.resize(img)
             if anno_mask!=None:
                 anno_mask = self.resize(anno_mask)
         elif self.img_mode == 'crop' and self.split == 'train': #只用训练的时候需要裁减、因为训练前的旋转操作会放大图片
             i, j, h, w = self.get_params(img, (self.img_size, self.img_size))
+            # print("i, j, h, w",i, j, h, w)
             img = F.crop(img, i, j, h, w)
             if anno_mask!=None:
                 anno_mask = F.crop(anno_mask, i, j, h, w)
+                # print(anno_mask.shape, i, j, h, w)
         else:
             pass
         img_gray = self.norm_img(np.array(img))#由前文知norm_img作用为: 将数据由HWC255 转换为CHW0～1
@@ -176,6 +195,8 @@ class DatasetXCAD_aug(data.Dataset):
                 'anno_mask': anno_mask,  #标签数据
                 'gray': img_gray         #(原始)图像数据
             }
+            # print("2supervised",img.shape,anno_mask.shape)
+            # print("2.supervised",anno_mask.shape)
             return batch #实际训练过程中只用 img、anno_mask 这两个值被用到
         else: #无监督
             batch = {
@@ -188,6 +209,8 @@ class DatasetXCAD_aug(data.Dataset):
                     'anno_mask': anno_mask, # 伪标签数据
                     'img': img  # 图片数据
                 }
+                # print("2supervised",img.shape,anno_mask.shape)
+                # print("2.unsupervised",anno_mask.shape,self.img_mode == 'crop' and self.split == 'train',h,w)
             return batch
 
     def augmentation(self, img, anno_mask, anno_boundary, ignore_mask):
