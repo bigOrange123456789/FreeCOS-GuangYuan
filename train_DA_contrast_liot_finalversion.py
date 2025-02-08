@@ -23,209 +23,9 @@ from utils.loss_function import DiceLoss, Contrastloss, ContrastRegionloss, Cont
     ContrastRegionloss_supunsup, ContrastRegionloss_NCE, ContrastRegionloss_AllNCE, ContrastRegionloss_quaryrepeatNCE, Triplet
 from base_model.discriminator import PredictDiscriminator, PredictDiscriminator_affinity
 
-import numpy as np
-from PIL import Image
-from skimage import measure
 
-def asymmetric_loss(x, y, clip=0.05, eps=1e-8, disable_torch_grad_focal_loss=True):
-# def asymmetric_loss(x, y, gamma_neg=4, gamma_pos=0, clip=0.05, eps=1e-8, disable_torch_grad_focal_loss=True):
-    gamma_neg=config.gamma_neg
-    gamma_pos=config.gamma_pos
-    """"
-    用于计算不平衡损失
-    源自谢驰师哥的代码：https://github.com/charles-xie/CQL
-    Parameters
-    ----------
-    x: input logits     [4, 1, 256, 256]
-    tensor([[[[0.7753, 0.7117, 0.5816,  ...,
-    y: targets (multi-label binarized vector)   [4, 1, 256, 256]
-    tensor([[[[0., 0., 0.,  ...,
-    """
-    # criterion_bce(x=pred_sup_l, y=gts) # 根据预测结果x和标签y计算CE损失
-    pos_inds = y.eq(1).float() #转换为布尔型,再转换为浮点型
-    num_pos = pos_inds.float().sum() #标签中血管所占像素的总数
-    '''
-    x.shape=[4, 1, 256, 256]
-    y.shape=[4, 1, 256, 256]
-    num_pos=tensor(19957.)
-    '''
-
-    # Calculating Probabilities
-    # x_sigmoid = torch.sigmoid(x)
-    x_sigmoid = x  # x.shape=[4, 1, 256, 256]
-    xs_pos = x_sigmoid #血管概率
-    xs_neg = 1 - x_sigmoid #背景概率
-    # print(xs_pos.shape, xs_neg.shape,xs_neg)
-
-    # Asymmetric Clipping 不对称剪裁(这个操作的作用是什么？)
-    if clip is not None and clip > 0:
-        xs_neg = (xs_neg + clip).clamp(max=1) # 将所有背景概率都增大clip(5%)
-
-    # Basic CE calculation
-    los_pos = y * torch.log(xs_pos.clamp(min=eps))
-    los_neg = (1 - y) * torch.log(xs_neg.clamp(min=eps))
-    loss = los_pos + los_neg # loss.shape = [4, 1, 256, 256]
-
-    # Asymmetric Focusing
-    if gamma_neg > 0 or gamma_pos > 0:
-        if disable_torch_grad_focal_loss:
-            torch.set_grad_enabled(False) # 接下来不去计算梯度
-        pt0 = xs_pos * y
-        pt1 = xs_neg * (1 - y)  # pt = p if t > 0 else 1-p
-        pt = pt0 + pt1
-        one_sided_gamma = gamma_pos * y + gamma_neg * (1 - y)
-        one_sided_w = torch.pow(1 - pt, one_sided_gamma)
-        if disable_torch_grad_focal_loss:
-            torch.set_grad_enabled(True) # 接下来恢复计算梯度
-        loss *= one_sided_w
-    # loss.shape=[4, 1, 256, 256] <torch.Tensor>
-
-    if num_pos == 0:
-        return -loss.sum()
-    else:
-        return -loss.sum() / num_pos
-
-def bce_loss_lzc(x, y, eps=1e-8):
-
-    # Calculating Probabilities
-    # x_sigmoid = torch.sigmoid(x)
-    x_sigmoid = x  # x.shape=[4, 1, 256, 256]
-    xs_pos = x_sigmoid #血管概率
-    xs_neg = 1 - x_sigmoid #背景概率
-    # print(xs_pos.shape, xs_neg.shape,xs_neg)
-
-    # Basic CE calculation
-    los_pos = y * torch.log(xs_pos.clamp(min=eps))
-    los_neg = (1 - y) * torch.log(xs_neg.clamp(min=eps))
-    loss = los_pos + los_neg # loss.shape = [4, 1, 256, 256]
-
-    return -loss.mean()
-class BCELoss_lzc(nn.Module):
-    def __init__(
-        self,
-        weight=None,
-        eps=1e-8,
-        gamma_neg=0,
-        gamma_pos=0,
-        disable_torch_grad_focal_loss=True
-    ):
-        super(BCELoss_lzc, self).__init__()
-        self.weight=weight
-        self.eps=eps
-        self.gamma_neg=gamma_neg #用于Focal Loss
-        self.gamma_pos=gamma_pos #用于Focal Loss
-        self.disable_torch_grad_focal_loss=disable_torch_grad_focal_loss #用于Focal Loss
-
-    def forward(self, x , y ) :
-        xs_pos = x #血管概率
-        xs_neg = 1 - x #背景概率
-
-        # Basic CE calculation
-        los_pos = y * torch.log(xs_pos.clamp(min=self.eps))
-        los_neg = (1 - y) * torch.log(xs_neg.clamp(min=self.eps))
-        loss = los_pos + los_neg # loss.shape = [4, 1, 256, 256]
-
-
-        # Asymmetric Focusing
-        if self.gamma_neg > 0 or self.gamma_pos > 0:
-            if self.disable_torch_grad_focal_loss:
-                torch.set_grad_enabled(False) # 接下来不去计算梯度
-            pt = xs_neg * y  + xs_pos * (1 - y)
-            one_sided_gamma = self.gamma_pos * y + self.gamma_neg * (1 - y)
-            one_sided_w = torch.pow( pt, one_sided_gamma)
-            if self.disable_torch_grad_focal_loss:
-                torch.set_grad_enabled(True) # 接下来恢复计算梯度
-            loss *= one_sided_w
-
-        if not self.weight is None:#原本BCE自带的加权功能
-            loss=loss*self.weight
-
-        return -loss.mean()
-
-class ConnectivityAnalyzer:
-    def __init__(
-            self,
-            mask_tensor
-    ):
-        self.mask_tensor=mask_tensor
-        self.allObj=torch.where(mask_tensor > 0.5, torch.ones_like(mask_tensor),
-                                  torch.zeros_like(mask_tensor))
-        self.mainObj=self.getMainObj(self.allObj)
-    def connectivityLoss(self):
-        # score_all=mask_tensor*self.getAllObj(mask_tensor)
-        # score_main=mask_tensor*self.getMainObj(mask_tensor)
-        score_all = self.mask_tensor * self.allObj
-        score_main = self.mask_tensor * self.mainObj
-        def compute(m):
-            # 计算每张图片的像素和
-            # 由于每张图片是单通道的，我们直接对最后一个两个维度求和
-            pixel_sums = m.sum(dim=(2, 3))  # shape 将变为 [4, 1]
-
-            # 由于 pixel_sums 的形状是 [4, 1]，我们可以通过 squeeze() 方法去掉单通道维度
-            # 这不是必需的，但可以使后续操作更清晰
-            pixel_sums_squeezed = pixel_sums.squeeze(1)  # shape 变为 [4]
-
-            # 计算所有图片像素和的平均值
-            return pixel_sums_squeezed.mean()  # 得到一个标量
-        score_all  = compute(score_all)
-        score_main = compute(score_main)
-        eps=1e-8
-        return score_all/(score_main+eps)
-    def getAllObj(self, mask_tensor):
-        return torch.where(mask_tensor > 0.5, torch.ones_like(mask_tensor),
-                                     torch.zeros_like(mask_tensor))
-
-    def getMainObj(self, mask_tensor):
-        mask_tensor=mask_tensor.cpu()
-        # mask_tensor = torch.where(mask_tensor > 0.5, torch.ones_like(mask_tensor),
-        #                              torch.zeros_like(mask_tensor))
-
-        # 将PyTorch张量转换为NumPy数组，保持单通道维度
-        mask_array = mask_tensor.numpy().astype(np.uint8)
-
-        # 创建一个空列表来存储处理后的MASK，保持与输入相同的shape
-        processed_masks = []
-
-        # 遍历每张MASK图片（保持单通道维度）
-        for mask in mask_array:
-            # 挤压掉单通道维度以进行连通性检测，但之后要恢复
-            mask_squeeze = mask.squeeze()
-            if mask_squeeze.sum()==0:#这个对象为空
-                processed_masks.append(mask)
-                continue
-
-            # 进行连通性检测，返回标记数组和连通区域的数量
-            labeled_array, num_features = measure.label(mask_squeeze, connectivity=1, return_num=True)
-
-            # 创建一个字典来存储每个标签的像素数
-            region_sizes = {}
-            for region in range(1, num_features + 1):
-                # 计算每个连通区域的像素数
-                region_size = np.sum(labeled_array == region)
-                region_sizes[region] = region_size
-
-            # 找到像素数最多的连通区域及其标签
-            max_region = max(region_sizes, key=region_sizes.get)
-
-            # 创建一个新的MASK，只保留像素数最多的连通区域，并恢复单通道维度
-            processed_mask = np.zeros_like(mask)
-            processed_mask[0, labeled_array == max_region] = 1
-
-            # 将处理后的MASK添加到列表中
-            processed_masks.append(processed_mask)
-
-        # 将处理后的MASK列表转换回PyTorch张量
-        processed_masks_tensor = torch.tensor(processed_masks, dtype=torch.float32)
-
-        # 检查shape是否保持不变
-        assert processed_masks_tensor.shape == mask_tensor.shape, "Processed masks tensor shape does not match original."
-
-        if torch.cuda.is_available():# 检查CUDA是否可用
-            device = torch.device("cuda")  # 创建一个表示GPU的设备对象
-        else:
-            device = torch.device("cpu")  # 如果没有GPU，则使用CPU
-
-        return processed_masks_tensor.to(device)
+from lzc.BCELoss_lzc import BCELoss_lzc
+from lzc.ConnectivityAnalyzer import ConnectivityAnalyzer
 
 def create_csv(path, csv_head):
     with open(path, 'w', newline='') as f:
@@ -634,102 +434,7 @@ def evaluate(epoch, Segment_model, predict_Discriminator_model, val_target_loade
         val_loss_sup = val_sum_loss_sup / len(val_target_loader)
         return val_mean_f1, val_mean_AUC, val_mean_pr, val_mean_re, val_mean_acc, val_mean_sp, val_mean_jc, val_loss_sup
 
-
-class Predictor():
-    def __init__(
-        self,
-        Segment_model,
-        dataloader_val,
-        dataloader_unsupervised
-    ):
-        self.Segment_model=Segment_model
-        self.dataloader_val=dataloader_val
-        self.dataloader_unsup=dataloader_unsupervised
-        if False:  # 加载保存的状态字典
-            self.loadParm()
-
-    def loadParm(self):
-        checkpoint_path = 'logs/best_Segment.pt'  # os.path.join(cls.logpath, 'best_Segment.pt')
-        checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))  # 如果模型是在GPU上训练的，这里指定为'cpu'以确保兼容性
-        self.Segment_model.load_state_dict(checkpoint['state_dict'])  # 提取模型状态字典并赋值给模型
-
-    def is_pattern_connected(self, mask_tensor):
-        # 将PyTorch张量转换为NumPy数组，保持单通道维度
-        mask_array = mask_tensor.numpy().astype(np.uint8)
-
-        # 创建一个空列表来存储处理后的MASK，保持与输入相同的shape
-        processed_masks = []
-
-        # 遍历每张MASK图片（保持单通道维度）
-        for mask in mask_array:
-            # 挤压掉单通道维度以进行连通性检测，但之后要恢复
-            mask_squeeze = mask.squeeze()
-
-            # 进行连通性检测，返回标记数组和连通区域的数量
-            labeled_array, num_features = measure.label(mask_squeeze, connectivity=1, return_num=True)
-
-            # 创建一个字典来存储每个标签的像素数
-            region_sizes = {}
-            for region in range(1, num_features + 1):
-                # 计算每个连通区域的像素数
-                region_size = np.sum(labeled_array == region)
-                region_sizes[region] = region_size
-
-            # 找到像素数最多的连通区域及其标签
-            max_region = max(region_sizes, key=region_sizes.get)
-
-            # 创建一个新的MASK，只保留像素数最多的连通区域，并恢复单通道维度
-            processed_mask = np.zeros_like(mask)
-            processed_mask[0, labeled_array == max_region] = 1
-
-            # 将处理后的MASK添加到列表中
-            processed_masks.append(processed_mask)
-
-        # 将处理后的MASK列表转换回PyTorch张量
-        processed_masks_tensor = torch.tensor(processed_masks, dtype=torch.float32)
-
-        # 检查shape是否保持不变
-        assert processed_masks_tensor.shape == mask_tensor.shape, "Processed masks tensor shape does not match original."
-        return processed_masks_tensor
-
-    def inference(self, loader , path ) :
-        if torch.cuda.device_count() > 1:
-            self.Segment_model.module.eval()
-        else:  # 将模型设置为评价模式
-            self.Segment_model.eval()
-        with torch.no_grad():  # 不进行梯度计算
-            os.makedirs(path, exist_ok=True)
-            for val_idx, minibatch in enumerate(loader):
-                val_imgs = minibatch['img']  # 图片的梯度数据
-                val_img_name = minibatch['img_name']  # 图片名称
-                val_imgs = val_imgs.cuda(non_blocking=True)  # NCHW
-                val_pred_sup_l, sample_set_unsup, _ = self.Segment_model(val_imgs, mask=None, trained=False, fake=False)
-                if True:
-                    val_pred_sup_l = torch.where(val_pred_sup_l > 0.5, torch.ones_like(val_pred_sup_l),
-                         torch.zeros_like(val_pred_sup_l))
-                else:
-                    val_pred_sup_l = ConnectivityAnalyzer(val_pred_sup_l).mainObj# val_pred_sup_l=self.is_pattern_connected(val_pred_sup_l.cpu())
-
-                val_pred_sup_l = val_pred_sup_l * 255
-
-                # 将tensor转换为numpy数组，并调整形状以匹配PIL的输入要求（N, H, W）
-                images_np = val_pred_sup_l.to('cpu').numpy().squeeze(axis=1).astype(np.uint8)
-                # 保存每张图片到本地文件
-                for i, image in enumerate(images_np):
-                    # 使用PIL创建图像对象，并保存为灰度图
-                    img_pil = Image.fromarray(image, mode='L')  # 'L'模式表示灰度图
-                    # img_pil.save("logs/"+val_img_name[i])  # 保存图片，文件名可以根据需要调整
-                    # img_pil.save(os.path.join('logs', config.logname + ".log", "inference", val_img_name[i]))
-                    img_pil.save(os.path.join(path, val_img_name[i]))
-    def lastInference(self) :
-        path = os.path.join('logs', config.logname + ".log", "inference")
-        os.makedirs(path, exist_ok=True)
-        self.inference(self.dataloader_val, path)
-    def nextInference(self) :
-        path = os.path.join('logs', config.logname + ".log", "unsup_temp")
-        os.makedirs(path, exist_ok=True)
-        self.inference(self.dataloader_unsup, path)
-
+from lzc.Predictor import Predictor
 
 def main():
     # os.getenv('debug'): None
@@ -784,7 +489,15 @@ def main():
     # define and init the model # 定义并初始化模型
     # Single or not single # 单个或非单个
     BatchNorm2d = nn.BatchNorm2d # <BatchNorm2d> #BN会重置均值和方差，新的均值和新的方差都是可学习的参数
-    Segment_model = Single_contrast_UNet(4, config.num_classes) # config.num_classes=1
+    # Segment_model = Single_contrast_UNet(4, config.num_classes) # config.num_classes=1
+    if config.inputType=="Origin":
+        n_channels = 1
+    elif config.inputType=="LIOT":
+        n_channels = 4
+    else:
+        print("配置文件中的inputType参数不合法！")
+        exit(0)
+    Segment_model = Single_contrast_UNet(n_channels, config.num_classes)
     # 我猜BN不放在Segment_model中的原因是：训练和评估这两种模式在使用的时候会有差异
 
     init_weight(Segment_model.business_layer, nn.init.kaiming_normal_,
@@ -798,6 +511,8 @@ def main():
     base_lr_D = config.lr_D  # 0.04 # dropout?
 
     predictor = Predictor(Segment_model, dataloader_val, dataloader_unsupervised)
+    # predictor.showLIOT()#测试代码
+    # exit(0)
 
     params_list_l = []
     params_list_l = group_weight(

@@ -90,6 +90,8 @@ C.marginInfoNCE = C_['marginInfoNCE']
 C.pseudo_label = C_["pseudo_label"]
 #5.是否使用连通性损失
 C.connectivityLoss = C_["connectivityLoss"]
+#6.设置神经网络模型输入的图片格式
+C.inputType= C_["inputType"]
 
 """Image Config"""
 C.num_classes = 1

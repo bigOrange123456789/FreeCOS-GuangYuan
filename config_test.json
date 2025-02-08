@@ -1,7 +1,7 @@
 {
     "seed": 12345,
-    "batch_size": 14,
-    "batch_size_val": 16,
+    "batch_size": 4,
+    "batch_size_val": 4,
 
     "vessel3D": true,
     "dePhase":1,
@@ -18,8 +18,9 @@
     "connectivityLoss":true,
 
     "inputType": "LIOT",
+    "inputType-OLD": ["Origin","LIOT","Test"],
 
-    "datapath": "../DataSet-images/XCAD_FreeCOS5",
+    "datapath": "../DataSet-images/XCAD_FreeCOS",
     "logname":"./FreeCOS20",
     "version": "2025.02.08--13:31"
 }

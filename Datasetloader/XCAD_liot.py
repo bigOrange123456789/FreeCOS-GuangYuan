@@ -179,14 +179,22 @@ class DatasetXCAD_aug(data.Dataset):
         # img_gray: [1, 256, 256] <torch.Tensor>
         # [1, 256, 256] <- (256, 256) # Tensor <- ndarray
 
-        #LIOT part
-        img = trans_liot(img) # (4,256,256) <- (256,256) #类似于梯度的计算
+
+        if config.inputType == "Origin":
+            img = np.asarray(img)
+            img = img[None, :, :]  # 新增加一个维度
+        elif config.inputType == "LIOT":#LIOT part
+            img = trans_liot(img) # (4,256,256) <- (256,256) #类似于梯度的计算
+        else:
+            print("配置文件中的inputType参数不合法！")
+            exit(0)
+        img_test=img
         img = img.transpose((1, 2, 0)) # (256,256,4) <- (4,256,256)
-        img = self.norm_img(img) # [4,256,256] <- (256,256,4)
+        img = self.norm_img(img) # [4,256,256] <- (256,256,4) #由HWC255格式、转换为CHW0～1的格式
         # [4, 256, 256] <- (256, 256, 4) # Tensor <- ndarray
         # img = img_gray
 
-        img = (img-torch.mean(img))/torch.std(img) # (x-均值)/标准差
+        img = (img-torch.mean(img))/torch.std(img) # (x-均值)/标准差 # 将均值转换为0、标准差转换为1
         if self.supervised=='supervised': #有监督
             # print("gt_unique", torch.unique(anno_mask))
             batch = {
@@ -211,6 +219,7 @@ class DatasetXCAD_aug(data.Dataset):
                 }
                 # print("2supervised",img.shape,anno_mask.shape)
                 # print("2.unsupervised",anno_mask.shape,self.img_mode == 'crop' and self.split == 'train',h,w)
+            batch["img_test"]=img_test
             return batch
 
     def augmentation(self, img, anno_mask, anno_boundary, ignore_mask):
