@@ -2,8 +2,20 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import re
 
-indicatorFlag='f1'
+indicatorFlag='recall'
 assert indicatorFlag in ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
+# pr : precision
+# sp:  specificity
+#   特异性是衡量模型在负样本（Negative Class）上表现的指标，它反映了模型正确识别负样本的能力。
+'''
+    precision = tp / (tp + fp + epsilon) # 预测为T的这些样本中，实际为T的比例 (预测T的正确率)        伪主的正确率:查准率precision
+    recall = tp / (tp + fn + epsilon)    # 实际为T的这些样本中，预测为T的比例 (实际T的召回率)        主体的正确率:查全率recall
+    f1_score = 2 * (precision * recall) / (precision + recall + epsilon)
+    Acc = (tp+tn)/(tp+fn+tn+fp)         # accuracy：准确率                  (全预测正确率)         全部的正确率:准确率accuracy
+    Sp = tn/(tn+fp+ epsilon)            # 特异性： 预测为F的这些样本中，实际为F的比例 (预测F的正确率) 背景的正确率:特异性specificity
+    jc_score = jc(pred,gt) #Jaccard系数: 重叠度
+
+'''
 # 定义一个函数，用于从字符串中提取数值部分并转换为浮点数
 def extract_float_from_tensor_string(tensor_string):
     if not isinstance(tensor_string, str):
@@ -57,7 +69,7 @@ def progressFile(name,color):
             color=color, fontsize=10, bbox=dict(facecolor='white', alpha=1))
 
 if True:
-    progressFile("FreeCOS-GuangYuan01",'r')
+    # progressFile("FreeCOS-GuangYuan01",'r')
     # progressFile("FreeCOS-GuangYuan02",'g')
     # progressFile("FreeCOS-GuangYuan03",'b')
     # progressFile("FreeCOS-GuangYuan04",'c')
@@ -66,10 +78,11 @@ if True:
     # progressFile("FreeCOS-GuangYuan07",'k')
     # progressFile("FreeCOS-GuangYuan09",'g')
     # progressFile("FreeCOS-GuangYuan10",'b')
-    # progressFile("FreeCOS-GuangYuan14",'g')
-    progressFile("FreeCOS-GuangYuan17",'g')
-    # progressFile("FreeCOS-GuangYuan18",'g')
-    # progressFile("FreeCOS-GuangYuan19",'b')
+    # progressFile("FreeCOS-GuangYuan11",'g')
+    progressFile("FreeCOS-GuangYuan01",'r')
+    # progressFile("FreeCOS-GuangYuan02",'g')
+    # progressFile("FreeCOS-GuangYuan04",'b')
+    # progressFile("FreeCOS-GuangYuan17",'c')
     plt.title('y:'+indicatorFlag+' x:epoch')  # 设置标题
     plt.xlabel('Epoch')  # 设置横坐标标签
     plt.ylabel(indicatorFlag+' Score')  # 设置纵坐标标签
