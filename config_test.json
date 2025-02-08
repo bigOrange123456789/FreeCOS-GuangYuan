@@ -15,7 +15,7 @@
 
     "pseudo_label": false,
 
-    "connectivityLoss":true,
+    "connectivityLoss":false,
 
     "inputType": "LIOT",
     "inputType-OLD": ["Origin","LIOT","Test"],
