@@ -645,7 +645,7 @@ class Predictor():
         self.Segment_model=Segment_model
         self.dataloader_val=dataloader_val
         self.dataloader_unsup=dataloader_unsupervised
-        if True:  # 加载保存的状态字典
+        if False:  # 加载保存的状态字典
             self.loadParm()
 
     def loadParm(self):
