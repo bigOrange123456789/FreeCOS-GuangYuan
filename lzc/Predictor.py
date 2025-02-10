@@ -10,7 +10,6 @@ from skimage import measure
 
 from lzc.ConnectivityAnalyzer import ConnectivityAnalyzer
 
-
 class Predictor():
     def __init__(
         self,
@@ -105,29 +104,40 @@ class Predictor():
         path = os.path.join('logs', config.logname + ".log", "unsup_temp")
         self.inference(self.dataloader_unsup, path)
 
-    def showLIOT(self):
+    def showInput(self):
         path = os.path.join('logs', config.logname + ".log", "liot")
         os.makedirs(path, exist_ok=True)
         loader=self.dataloader_unsup
         with torch.no_grad():  # 不进行梯度计算
             for val_idx, minibatch in enumerate(loader):
                 val_img_name = minibatch['img_name']  # 图片名称
-                val_imgs = minibatch['img_test']  # 图片的梯度数据
+                val_imgs = minibatch['img_copy']  # 图片的梯度数据
                 val_imgs = val_imgs.cuda(non_blocking=True)  # NCHW
-                print("val_imgs",val_imgs.shape)
-                print("val_imgs[0, 0, :, :]",val_imgs[0, 0, :, :])
+                # print("val_imgs",val_imgs.shape)
+                # print("val_imgs[0, 0, :, :]",val_imgs[0, 0, :, :])
+
+                val_imgs_t = minibatch['img_test']*255  # 图片的梯度数据
+                # val_imgs_t = minibatch['img_copy']  # 图片的梯度数据
+                # val_imgs_t =val_imgs_t*255
+
+                # gray=minibatch['img']
+                # print("gray",gray.shape,type(gray))
 
                 # val_imgs = val_imgs * 255
 
                 # 将tensor转换为numpy数组，并调整形状以匹配PIL的输入要求（N, H, W）
                 # images_np = val_imgs[:,0,:,:].to('cpu').numpy()#.squeeze(axis=1).astype(np.uint8)
                 images_np = val_imgs[:, 0, :, :].to('cpu').numpy().astype(np.uint8)
-                print("images_np:",images_np.shape)
-                print("images_np[0,:,:]",images_np[0,:,:])
+                images_np_t = val_imgs_t[:, 0, :, :].to('cpu').numpy().astype(np.uint8)
+                # print("images_np_t:",images_np_t)
+                # print("images_np_t[0,:,:]",images_np_t[0,:,:])
                 # 保存每张图片到本地文件
                 for i, image in enumerate(images_np):
                     # 使用PIL创建图像对象，并保存为灰度图
                     img_pil = Image.fromarray(image, mode='L')  # 'L'模式表示灰度图
-                    img_pil.save(os.path.join(path, "0."+val_img_name[i]))
+                    img_pil.save(os.path.join(path, "input."+val_img_name[i]))
 
-                exit(0)
+                    img_pil = Image.fromarray(images_np_t[i,:,:], mode='L')  # 'L'模式表示灰度图
+                    img_pil.save(os.path.join(path, "test." + val_img_name[i]))
+
+

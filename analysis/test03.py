@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import re
 
-indicatorFlag='recall'
+indicatorFlag='AUC'
 assert indicatorFlag in ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
 # pr : precision
 # sp:  specificity
@@ -14,7 +14,6 @@ assert indicatorFlag in ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp',
     Acc = (tp+tn)/(tp+fn+tn+fp)         # accuracy：准确率                  (全预测正确率)         全部的正确率:准确率accuracy
     Sp = tn/(tn+fp+ epsilon)            # 特异性： 预测为F的这些样本中，实际为F的比例 (预测F的正确率) 背景的正确率:特异性specificity
     jc_score = jc(pred,gt) #Jaccard系数: 重叠度
-
 '''
 # 定义一个函数，用于从字符串中提取数值部分并转换为浮点数
 def extract_float_from_tensor_string(tensor_string):
@@ -80,8 +79,8 @@ if True:
     # progressFile("FreeCOS-GuangYuan10",'b')
     # progressFile("FreeCOS-GuangYuan11",'g')
     progressFile("FreeCOS-GuangYuan01",'r')
-    # progressFile("FreeCOS-GuangYuan02",'g')
-    # progressFile("FreeCOS-GuangYuan04",'b')
+    progressFile("FreeCOS-GuangYuan02",'g')
+    progressFile("FreeCOS-GuangYuan17",'b')
     # progressFile("FreeCOS-GuangYuan17",'c')
     plt.title('y:'+indicatorFlag+' x:epoch')  # 设置标题
     plt.xlabel('Epoch')  # 设置横坐标标签

@@ -8,7 +8,7 @@ import torchvision.transforms.functional as F
 
 from torchvision import transforms
 from torch.utils import data
-from Datasetloader.torch_LIOT import trans_liot, trans_liot_region, trans_liot_region_stride, trans_liot_differentsize
+from Datasetloader.torch_LIOT import trans_liot, trans_NewLiot, trans_liot_region, trans_liot_region_stride, trans_liot_differentsize
 #trans_list NCHW
 import cv2
 
@@ -179,16 +179,19 @@ class DatasetXCAD_aug(data.Dataset):
         # img_gray: [1, 256, 256] <torch.Tensor>
         # [1, 256, 256] <- (256, 256) # Tensor <- ndarray
 
-
+        img_test = img_gray
         if config.inputType == "Origin":
             img = np.asarray(img)
             img = img[None, :, :]  # 新增加一个维度
-        elif config.inputType == "LIOT":#LIOT part
+        elif config.inputType == "LIOT": # LIOT part
             img = trans_liot(img) # (4,256,256) <- (256,256) #类似于梯度的计算
+        elif config.inputType == "NewLIOT": # LIOT
+            img = trans_NewLiot(img)
         else:
             print("配置文件中的inputType参数不合法！")
             exit(0)
-        img_test=img
+        img_copy = np.copy(img)
+
         img = img.transpose((1, 2, 0)) # (256,256,4) <- (4,256,256)
         img = self.norm_img(img) # [4,256,256] <- (256,256,4) #由HWC255格式、转换为CHW0～1的格式
         # [4, 256, 256] <- (256, 256, 4) # Tensor <- ndarray
@@ -220,6 +223,7 @@ class DatasetXCAD_aug(data.Dataset):
                 # print("2supervised",img.shape,anno_mask.shape)
                 # print("2.unsupervised",anno_mask.shape,self.img_mode == 'crop' and self.split == 'train',h,w)
             batch["img_test"]=img_test
+            batch["img_copy"]=img_copy
             return batch
 
     def augmentation(self, img, anno_mask, anno_boundary, ignore_mask):

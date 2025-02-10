@@ -171,6 +171,8 @@ def main():
         n_channels = 1
     elif config.inputType=="LIOT":
         n_channels = 4
+    elif config.inputType == "NewLIOT":
+        n_channels = 4
     else:
         print("配置文件中的inputType参数不合法！")
         exit(0)
@@ -188,8 +190,7 @@ def main():
     base_lr_D = config.lr_D  # 0.04 # dropout?
 
     predictor = Predictor(Segment_model, dataloader_val, dataloader_unsupervised)
-    # predictor.showLIOT()#测试代码
-    # exit(0)
+    # predictor.showInput()#测试代码
 
     params_list_l = []
     params_list_l = group_weight(
@@ -251,7 +252,7 @@ def main():
                 optimizer_l, optimizer_D, lr_policy, lrD_policy, criterion, total_iteration, average_posregion,
                 average_negregion)
     # inference(Segment_model, dataloader_val)
-    for epoch in range(config.state_epoch, config.nepochs): #从state_epoch到nepochs-1 # 按照预先设定的回合数量执行，不会提前中止
+    for epoch in range(config.state_epoch, config.nepochs): # 从state_epoch到nepochs-1 # 按照预先设定的回合数量执行，不会提前中止
         # train_loss_sup, train_loss_consis, train_total_loss
         train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss, train_loss_dice, train_loss_ce, train_loss_contrast, average_posregion, average_negregion \
             =trainer.train(epoch, dataset_unsupervised.isFirstEpoch)
