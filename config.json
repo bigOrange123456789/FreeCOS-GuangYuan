@@ -20,6 +20,6 @@
     "inputType": "NewLiot",
 
     "datapath": "../DataSet-images/XCAD_FreeCOS5",
-    "logname":"./FreeCOS21",
+    "logname":"./FreeCOS22",
     "version": "2025.02.08--13:31"
 }
