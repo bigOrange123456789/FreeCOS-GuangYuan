@@ -17,7 +17,7 @@
 
     "connectivityLoss":false,
 
-    "inputType": "NewLiot",
+    "inputType": "NewLIOT",
 
     "datapath": "../DataSet-images/XCAD_FreeCOS5",
     "logname":"./FreeCOS22",
