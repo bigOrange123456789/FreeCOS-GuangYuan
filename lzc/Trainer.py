@@ -297,7 +297,7 @@ class Trainer():
             gts_pseudo = gts_pseudo.cuda(non_blocking=True)
             with torch.no_grad():  # 禁用梯度计算
                 criterion_bce2 = BCELoss_lzc(
-                    weight=weight_mask,
+                    weight=weight_maskConnectivityAnalyzer,
                     gamma_pos=config.gamma_pos,
                     gamma_neg=config.gamma_neg)
             loss_pseudo = criterion_bce2(pred_target, gts_pseudo)
@@ -305,11 +305,11 @@ class Trainer():
 
         # 5.连通性损失
         if config.connectivityLoss:  # 使用连通损失
-            loss_conn1 = ConnectivityAnalyzer(pred_sup_l).connectivityLoss()  # 合成监督
-            loss_conn2 = ConnectivityAnalyzer(pred_target).connectivityLoss()  # 无监督
+            loss_conn1 = ConnectivityAnalyzer(pred_sup_l).connectivityLoss(config.connectivityLossType)  # 合成监督
+            loss_conn2 = ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 无监督
             loss_conn = loss_conn1 + loss_conn2
             if config.pseudo_label and isFirstEpoch == False:
-                loss_conn3 = ConnectivityAnalyzer(pred_target).connectivityLoss()  # 伪监督
+                loss_conn3 = ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 伪监督
                 loss_conn = loss_conn + loss_conn3
         else: loss_conn=0
 
