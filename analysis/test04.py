@@ -6,6 +6,8 @@ import re
 fig, axs = plt.subplots(2, 4, figsize=(12, 6))  # figsize调整整体大小
 indicatorFlagList = ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
 axsList = [ axs[0,0],axs[0,1],axs[0,2],axs[0,3], axs[1,0],axs[1,1],axs[1,2],axs[1,3] ]
+# indicatorFlagList = [ 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
+# axsList = [ axs[0,0],axs[0,1],axs[0,2],axs[0,3], axs[1,0],axs[1,1],axs[1,2] ]
 
 # pr : precision
 # sp:  specificity
@@ -92,9 +94,9 @@ for id in range(len(axsList)):
     # progressFile(id,"FreeCOS-GuangYuan09",'g')
     # progressFile(id,"FreeCOS-GuangYuan10",'b')
     # progressFile(id,"FreeCOS-GuangYuan11",'g')
-    progressFile(id,"FreeCOS-GuangYuan01",'r')
-    progressFile(id,"FreeCOS-GuangYuan02",'g')
-    progressFile(id,"FreeCOS-GuangYuan16",'b')
+    progressFile(id,"FreeCOS-GuangYuan02",'r')
+    # progressFile(id,"FreeCOS-GuangYuan21",'g')
+    progressFile(id,"FreeCOS-GuangYuan22",'b')
     # progressFile("FreeCOS-GuangYuan17",'c')
     axs0.set_title('y:'+indicatorFlag+' x:epoch')
     '''
@@ -105,8 +107,8 @@ for id in range(len(axsList)):
     # plt.grid(True)  # 添加网格线
     # plt.xticks(df['epoch'])  # 设置横坐标刻度
     '''
-plt.title('y:indicator x:epoch')  # 设置标题    
-plt.tight_layout()  # 自动调整布局
+# plt.title('y:indicator x:epoch')  # 设置标题    
+# plt.tight_layout()  # 自动调整布局
 plt.show()  # 显示图形
 
     
