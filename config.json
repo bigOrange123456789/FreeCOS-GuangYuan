@@ -13,14 +13,15 @@
 
     "marginInfoNCE": false,
 
-    "pseudo_label": false,
+    "pseudo_label": true,
+    "onlyMainObj": true,
 
     "connectivityLoss":false,
     "connectivityLossType":"entropy",
 
-    "inputType": "NewLIOT2",
+    "inputType": "LIOT",
 
     "datapath": "../DataSet-images/XCAD_FreeCOS5",
-    "logname":"./FreeCOS24",
-    "version": "2025.02.11--14:27"
+    "logname":"./FreeCOS25",
+    "version": "2025.02.13--15:46"
 }

@@ -14,6 +14,7 @@
     "marginInfoNCE": false,
 
     "pseudo_label": false,
+    "onlyMainObj": true,
 
     "connectivityLoss":false,
     "connectivityLossType":"entropy",

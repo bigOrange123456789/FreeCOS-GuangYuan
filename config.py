@@ -88,6 +88,7 @@ C. gamma_pos=C_["ASL"]["gamma_pos"]
 C.marginInfoNCE = C_['marginInfoNCE']
 #4.是否使用伪标签机制
 C.pseudo_label = C_["pseudo_label"]
+C.onlyMainObj  = C_["onlyMainObj"]
 #5.是否使用连通性损失
 C.connectivityLoss = C_["connectivityLoss"]
 C.connectivityLossType = C_["connectivityLossType"]

@@ -6,7 +6,6 @@ from config import config
 
 import numpy as np
 from PIL import Image
-from skimage import measure
 
 from lzc.ConnectivityAnalyzer import ConnectivityAnalyzer
 
@@ -28,46 +27,7 @@ class Predictor():
         checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))  # 如果模型是在GPU上训练的，这里指定为'cpu'以确保兼容性
         self.Segment_model.load_state_dict(checkpoint['state_dict'])  # 提取模型状态字典并赋值给模型
 
-    def is_pattern_connected(self, mask_tensor):
-        # 将PyTorch张量转换为NumPy数组，保持单通道维度
-        mask_array = mask_tensor.numpy().astype(np.uint8)
-
-        # 创建一个空列表来存储处理后的MASK，保持与输入相同的shape
-        processed_masks = []
-
-        # 遍历每张MASK图片（保持单通道维度）
-        for mask in mask_array:
-            # 挤压掉单通道维度以进行连通性检测，但之后要恢复
-            mask_squeeze = mask.squeeze()
-
-            # 进行连通性检测，返回标记数组和连通区域的数量
-            labeled_array, num_features = measure.label(mask_squeeze, connectivity=1, return_num=True)
-
-            # 创建一个字典来存储每个标签的像素数
-            region_sizes = {}
-            for region in range(1, num_features + 1):
-                # 计算每个连通区域的像素数
-                region_size = np.sum(labeled_array == region)
-                region_sizes[region] = region_size
-
-            # 找到像素数最多的连通区域及其标签
-            max_region = max(region_sizes, key=region_sizes.get)
-
-            # 创建一个新的MASK，只保留像素数最多的连通区域，并恢复单通道维度
-            processed_mask = np.zeros_like(mask)
-            processed_mask[0, labeled_array == max_region] = 1
-
-            # 将处理后的MASK添加到列表中
-            processed_masks.append(processed_mask)
-
-        # 将处理后的MASK列表转换回PyTorch张量
-        processed_masks_tensor = torch.tensor(processed_masks, dtype=torch.float32)
-
-        # 检查shape是否保持不变
-        assert processed_masks_tensor.shape == mask_tensor.shape, "Processed masks tensor shape does not match original."
-        return processed_masks_tensor
-
-    def inference(self, loader , path ) :
+    def __inference(self, loader , path ) :
         os.makedirs(path, exist_ok=True)
         if torch.cuda.device_count() > 1:
             self.Segment_model.module.eval()
@@ -80,11 +40,11 @@ class Predictor():
                 val_img_name = minibatch['img_name']  # 图片名称
                 val_imgs = val_imgs.cuda(non_blocking=True)  # NCHW
                 val_pred_sup_l, sample_set_unsup, _ = self.Segment_model(val_imgs, mask=None, trained=False, fake=False)
-                if True:
+                if config.onlyMainObj: #True:
+                    val_pred_sup_l = ConnectivityAnalyzer(val_pred_sup_l).mainObj
+                else:
                     val_pred_sup_l = torch.where(val_pred_sup_l > 0.5, torch.ones_like(val_pred_sup_l),
                          torch.zeros_like(val_pred_sup_l))
-                else:
-                    val_pred_sup_l = ConnectivityAnalyzer(val_pred_sup_l).mainObj# val_pred_sup_l=self.is_pattern_connected(val_pred_sup_l.cpu())
 
                 val_pred_sup_l = val_pred_sup_l * 255
 
@@ -99,10 +59,10 @@ class Predictor():
                     img_pil.save(os.path.join(path, val_img_name[i]))
     def lastInference(self) :
         path = os.path.join('logs', config.logname + ".log", "inference")
-        self.inference(self.dataloader_val, path)
+        self.__inference(self.dataloader_val, path)
     def nextInference(self) :
         path = os.path.join('logs', config.logname + ".log", "unsup_temp")
-        self.inference(self.dataloader_unsup, path)
+        self.__inference(self.dataloader_unsup, path)
 
     def showInput(self):
         path = os.path.join('logs', config.logname + ".log", "liot")
