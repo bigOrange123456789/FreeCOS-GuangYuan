@@ -295,9 +295,14 @@ class Trainer():
         if config.pseudo_label and isFirstEpoch == False:
             gts_pseudo = unsup_minibatch['anno_mask']  # 原始数据
             gts_pseudo = gts_pseudo.cuda(non_blocking=True)
+
+            weight_mask2 = gts_pseudo.clone().detach()
+            weight_mask2[weight_mask2 == 0] = 0.1  # 值为0的元素设为0.1
+            weight_mask2[weight_mask2 == 1] = 1  # 值为1的元素保持不变
+
             with torch.no_grad():  # 禁用梯度计算
                 criterion_bce2 = BCELoss_lzc(
-                    weight=weight_maskConnectivityAnalyzer,
+                    weight=weight_mask2,
                     gamma_pos=config.gamma_pos,
                     gamma_neg=config.gamma_neg)
             loss_pseudo = criterion_bce2(pred_target, gts_pseudo)
