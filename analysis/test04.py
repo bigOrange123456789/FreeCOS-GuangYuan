@@ -84,9 +84,9 @@ def progressFile(id,name,color):
 for id in range(len(axsList)):
     indicatorFlag=indicatorFlagList[id]
     axs0=axsList[id]
-    # progressFile(id,"FreeCOS-GuangYuan01",'r')
-    # progressFile(id,"FreeCOS-GuangYuan02",'g')
-    # progressFile(id,"FreeCOS-GuangYuan03",'b')
+    progressFile(id,"FreeCOS-GuangYuan01",'r')
+    progressFile(id,"FreeCOS-GuangYuan02",'g')
+    progressFile(id,"FreeCOS-GuangYuan03",'b')
     # progressFile(id,"FreeCOS-GuangYuan04",'c')
     # progressFile(id,"FreeCOS-GuangYuan05",'m')
     # progressFile(id,"FreeCOS-GuangYuan06",'y') # 错误
@@ -94,9 +94,9 @@ for id in range(len(axsList)):
     # progressFile(id,"FreeCOS-GuangYuan09",'g')
     # progressFile(id,"FreeCOS-GuangYuan10",'b')
     # progressFile(id,"FreeCOS-GuangYuan11",'g')
-    progressFile(id,"FreeCOS-GuangYuan17",'r')
-    progressFile(id,"FreeCOS-GuangYuan21",'g')
-    progressFile(id,"FreeCOS-GuangYuan22",'b')
+    progressFile(id,"FreeCOS-GuangYuan17",'c')
+    # progressFile(id,"FreeCOS-GuangYuan21",'g')
+    # progressFile(id,"FreeCOS-GuangYuan22",'b')
     # progressFile("FreeCOS-GuangYuan17",'c')
     axs0.set_title('y:'+indicatorFlag+' x:epoch')
     '''

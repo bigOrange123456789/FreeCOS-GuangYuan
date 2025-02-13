@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import re
 
+
 indicatorFlag='f1'
 assert indicatorFlag in ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
 # pr : precision
@@ -92,9 +93,9 @@ if True:
     # progressFile("FreeCOS-GuangYuan21",'g')
     # progressFile("FreeCOS-GuangYuan22",'b')
     
-    # progressFile("FreeCOS-GuangYuan17",'c')
-    # progressFile("FreeCOS-GuangYuan21",'m')
-    progressFile("FreeCOS-GuangYuan22",'y')
+    progressFile("FreeCOS-GuangYuan17",'c')
+    # progressFile("FreeCOS-GuangYuan22",'m')
+    # progressFile("FreeCOS-GuangYuan23",'y')
 
     # print(config)
     # plt.title('y:'+indicatorFlag+' x:epoch')  # 设置标题
