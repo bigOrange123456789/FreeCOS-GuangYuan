@@ -1,11 +1,15 @@
 info=[
-    ["FreeCOS-GuangYuan01",'r'],
-    # ["FreeCOS-GuangYuan02",'g'],
-    # ["FreeCOS-GuangYuan03",'b'],
-    # ["FreeCOS-GuangYuan17",'c'],
-    ["FreeCOS-GuangYuan17",'m'],
-    ["FreeCOS-GuangYuan23",'y']
+    ["FreeCOS-GuangYuan01","r"],
+    ["FreeCOS-GuangYuan02","g"],
+    ["FreeCOS-GuangYuan03","b"],
+    ["FreeCOS-GuangYuan17","c"],
+    ["FreeCOS-GuangYuan17","m"],
+    ["FreeCOS-GuangYuan23","y"]
 ]
+import json
+with open('test.json', 'r', encoding='utf-8') as file:
+    info = json.load(file)
+
 '''
     progressFile("FreeCOS-GuangYuan01",'r')
     progressFile("FreeCOS-GuangYuan02",'g')
