@@ -15,10 +15,10 @@
 
     "pseudo_label": false,
 
-    "connectivityLoss":true,
+    "connectivityLoss":false,
     "connectivityLossType":"entropy",
 
-    "inputType": "LIOT",
+    "inputType": "LIOT2",
 
     "datapath": "../DataSet-images/XCAD_FreeCOS5",
     "logname":"./FreeCOS23",

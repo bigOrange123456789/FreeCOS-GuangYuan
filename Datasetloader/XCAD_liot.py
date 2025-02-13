@@ -8,7 +8,7 @@ import torchvision.transforms.functional as F
 
 from torchvision import transforms
 from torch.utils import data
-from Datasetloader.torch_LIOT import trans_liot, trans_NewLiot, trans_liot_region, trans_liot_region_stride, trans_liot_differentsize
+from Datasetloader.torch_LIOT import trans_liot, trans_NewLiot, trans_NewLiot2, trans_liot_region, trans_liot_region_stride, trans_liot_differentsize
 #trans_list NCHW
 import cv2
 
@@ -187,6 +187,8 @@ class DatasetXCAD_aug(data.Dataset):
             img = trans_liot(img) # (4,256,256) <- (256,256) #类似于梯度的计算
         elif config.inputType == "NewLIOT": # LIOT
             img = trans_NewLiot(img)
+        elif config.inputType == "NewLIOT2": # LIOT
+            img = trans_NewLiot2(img)
         else:
             print("配置文件中的inputType参数不合法！")
             exit(0)

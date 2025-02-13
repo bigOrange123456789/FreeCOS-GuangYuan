@@ -173,6 +173,8 @@ def main():
         n_channels = 4
     elif config.inputType == "NewLIOT":
         n_channels = 4
+    elif config.inputType == "NewLIOT2":
+        n_channels = 4
     else:
         print("配置文件中的inputType参数不合法！")
         exit(0)

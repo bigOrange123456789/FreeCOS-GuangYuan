@@ -1,8 +1,10 @@
 info=[
     ["FreeCOS-GuangYuan01",'r'],
-    ["FreeCOS-GuangYuan02",'g'],
-    ["FreeCOS-GuangYuan03",'b'],
-    ["FreeCOS-GuangYuan17",'c']
+    # ["FreeCOS-GuangYuan02",'g'],
+    # ["FreeCOS-GuangYuan03",'b'],
+    # ["FreeCOS-GuangYuan17",'c'],
+    ["FreeCOS-GuangYuan17",'m'],
+    ["FreeCOS-GuangYuan23",'y']
 ]
 '''
     progressFile("FreeCOS-GuangYuan01",'r')
@@ -291,7 +293,14 @@ if True:
             labels.append(experiment)
             colors.append(values['color'])
 
-        ax.bar(labels, bars, color=colors)
+        # ax.bar(labels, bars, color=colors)
+        # 绘制柱形图
+        bar_container = ax.bar(labels, bars, color=colors)
+        # 在每个柱形上方显示数值
+        for bar in bar_container:
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width() / 2, height, f'{height:.2f}',
+                    ha='center', va='bottom', fontsize=8)
         ax.set_title(metric)
         ax.set_xlabel('Experiment')
         ax.set_ylabel(metric)

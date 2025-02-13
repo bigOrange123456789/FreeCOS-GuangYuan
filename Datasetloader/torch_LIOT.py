@@ -201,6 +201,14 @@ def trans_NewLiot(img):
 
     return sum_map
 
+def trans_NewLiot2(img):
+    img = np.asarray(img)  # input image H*W->HWC form
+
+    sum_map1,sum_map2 = getVessel(img,8)
+    sum_map3,sum_map4 = getVessel(img,16)
+
+    return np.stack((sum_map1, sum_map2, sum_map3, sum_map4), axis=0)
+
 def img_region(img):
     #
     img_tensor = torch.from_numpy(img).float()
