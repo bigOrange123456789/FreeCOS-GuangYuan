@@ -18,7 +18,7 @@
     "connectivityLoss":false,
     "connectivityLossType":"entropy",
 
-    "inputType": "LIOT2",
+    "inputType": "NewLIOT2",
 
     "datapath": "../DataSet-images/XCAD_FreeCOS5",
     "logname":"./FreeCOS23",
