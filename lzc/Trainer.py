@@ -320,7 +320,7 @@ class Trainer():
         loss_seg_w = loss_dice + loss_ce * 0.1
         loss_adv_w = loss_adv_target * damping * 0.25 # (当前batch的)对抗损失。 # damping的取值范围是: 1到0
         loss_contrast_w = loss_contrast * 0.04  # (当前batch的)加权后的对比损失 # weight_contrast = 0.04  # 对比损失的权重
-        loss_pseudo_w = loss_pseudo * 0.01
+        loss_pseudo_w = loss_pseudo * ( 1 - damping ) * 0.01
         loss_conn_w = loss_conn * 0.1
 
         loss_adv = loss_seg_w + loss_adv_w + loss_contrast_w + loss_pseudo_w + loss_conn_w
