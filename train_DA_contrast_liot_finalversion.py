@@ -1,13 +1,9 @@
 # from __future__ import division
 import os
-import sys
-import time
 import argparse
-from tqdm import tqdm
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 
 from config import config
@@ -18,7 +14,6 @@ from engine.lr_policy import WarmUpPolyLR, CosinLR
 from utils.evaluation_metric import computeF1, compute_allRetinal
 from Datasetloader.dataset import CSDataset
 from common.logger import Logger
-import csv
 from utils.loss_function import DiceLoss, Contrastloss, ContrastRegionloss, ContrastRegionloss_noedge, \
     ContrastRegionloss_supunsup, ContrastRegionloss_NCE, ContrastRegionloss_AllNCE, ContrastRegionloss_quaryrepeatNCE, Triplet
 from base_model.discriminator import PredictDiscriminator, PredictDiscriminator_affinity
@@ -27,88 +22,6 @@ from base_model.discriminator import PredictDiscriminator, PredictDiscriminator_
 from lzc.BCELoss_lzc import BCELoss_lzc
 from lzc.ConnectivityAnalyzer import ConnectivityAnalyzer
 
-def create_csv(path, csv_head):
-    with open(path, 'w', newline='') as f:
-        csv_write = csv.writer(f)
-        # csv_head = ["good","bad"]
-        csv_write.writerow(csv_head)
-
-def write_csv(path, data_row):
-    # path  = "aa.csv"
-    with open(path, 'a+', newline='') as f:
-        csv_write = csv.writer(f)
-        # data_row = ["1","2"]
-        csv_write.writerow(data_row)
-
-
-# evaluate(epoch, model, dataloader_val,criterion,criterion_consist)
-def evaluate(epoch, Segment_model, predict_Discriminator_model, val_target_loader, criterion):
-    '''
-    epoch,                      已完成的批次数     0
-    Segment_model,              分割模型
-    predict_Discriminator_model,判别器模型
-    val_target_loader,          验证集加载器
-    criterion,                  评价标准           DiceLoss() type=<utils.loss_function.DiceLoss>
-    '''
-    if torch.cuda.device_count() > 1:
-        Segment_model.module.eval()
-        predict_Discriminator_model.module.eval()
-    else:#将模型设置为评价模式
-        Segment_model.eval()
-        predict_Discriminator_model.eval()
-    with torch.no_grad(): #不进行梯度计算
-        val_sum_loss_sup = 0
-        val_sum_f1 = 0
-        val_sum_pr = 0
-        val_sum_re = 0
-        val_sum_sp = 0
-        val_sum_acc = 0
-        val_sum_jc = 0
-        val_sum_AUC = 0
-        F1_best = 0
-        print('begin eval')
-        ''' supervised part '''
-        for val_idx, minibatch in enumerate(val_target_loader):
-            start_time = time.time()
-            val_imgs = minibatch['img']     #图片数据
-            val_gts = minibatch['anno_mask']#手工标签
-            val_imgs = val_imgs.cuda(non_blocking=True)
-            val_gts = val_gts.cuda(non_blocking=True)
-            # NCHW
-            val_pred_sup_l, sample_set_unsup, _ = Segment_model(val_imgs, mask=None, trained=False, fake=False)
-            '''
-            fake的含义是区分 真实血管/合成血管
-                fake=T/F -> masks真标签/预测标签
-                因为fake只影响对比学习，所以只在训练时有用、在评估时没用。
-            '''
-
-            max_l = torch.where(val_pred_sup_l >= 0.5, 1, 0)
-            val_max_l = max_l.float() # 1.<-1; 0.<-0;
-            val_loss_sup = criterion(val_pred_sup_l, val_gts) #监督损失
-
-            current_validx = epoch * config.niters_per_epoch + val_idx
-            val_loss = val_loss_sup
-            val_f1, val_precision, val_recall, val_Sp, val_Acc, val_jc, val_AUC = compute_allRetinal(val_max_l,
-                                                                                                     val_pred_sup_l,
-                                                                                                     val_gts)
-            val_sum_loss_sup += val_loss_sup.item()
-            val_sum_f1 += val_f1
-            val_sum_pr += val_precision
-            val_sum_re += val_recall
-            val_sum_AUC += val_AUC
-            val_sum_sp += val_Sp
-            val_sum_acc += val_Acc
-            val_sum_jc += val_jc
-            end_time = time.time()
-        val_mean_f1 = val_sum_f1 / len(val_target_loader)
-        val_mean_pr = val_sum_pr / len(val_target_loader)
-        val_mean_re = val_sum_re / len(val_target_loader)
-        val_mean_AUC = val_sum_AUC / len(val_target_loader)
-        val_mean_acc = val_sum_acc / len(val_target_loader)
-        val_mean_sp = val_sum_sp / len(val_target_loader)
-        val_mean_jc = val_sum_jc / len(val_target_loader)
-        val_loss_sup = val_sum_loss_sup / len(val_target_loader)
-        return val_mean_f1, val_mean_AUC, val_mean_pr, val_mean_re, val_mean_acc, val_mean_sp, val_mean_jc, val_loss_sup
 
 from lzc.Predictor import Predictor
 from lzc.Trainer import Trainer
@@ -191,7 +104,7 @@ def main():
     base_lr = config.lr      # 0.04 # 学习率
     base_lr_D = config.lr_D  # 0.04 # dropout?
 
-    predictor = Predictor(Segment_model, dataloader_val, dataloader_unsupervised)
+    predictor = Predictor(Segment_model, dataloader_val, dataloader_unsupervised, criterion)
     # predictor.showInput()#测试代码
 
     params_list_l = []
@@ -239,54 +152,34 @@ def main():
         Segment_model = Segment_model.cuda() # 分割模型
         average_posregion.cuda()
         average_negregion.cuda()
-        predict_Discriminator_model = predict_Discriminator_model.cuda() # 预测判别模型，我猜这是判别器
+        predict_Discriminator_model = predict_Discriminator_model.cuda() # 预测判别模型
     else:
         Segment_model = Segment_model
         predict_Discriminator_model = predict_Discriminator_model
 
     best_val_f1 = 0
-    best_val_AUC = 0
     Logger.initialize(config, training=True)
-    val_score_path = os.path.join('logs', config.logname + '.log') + '/' + 'val_train_f1.csv'
-    csv_head = ["epoch", "total_loss", "f1", "AUC", "pr", "recall", "Acc", "Sp", "JC"]
-    create_csv(val_score_path, csv_head)
     trainer = Trainer(Segment_model, predict_Discriminator_model, dataloader_supervised, dataloader_unsupervised,
                 optimizer_l, optimizer_D, lr_policy, lrD_policy, criterion, total_iteration, average_posregion,
                 average_negregion)
     # inference(Segment_model, dataloader_val)
     for epoch in range(config.state_epoch, config.nepochs): # 从state_epoch到nepochs-1 # 按照预先设定的回合数量执行，不会提前中止
-        # train_loss_sup, train_loss_consis, train_total_loss
+        '''train_total_loss=0'''
+
         train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss, train_loss_dice, train_loss_ce, train_loss_contrast, average_posregion, average_negregion \
             =trainer.train(epoch, dataset_unsupervised.isFirstEpoch)
         print("train_seg_loss:{},train_loss_Dtar:{},train_loss_Dsrc:{},train_loss_adv:{},train_total_loss:{},train_loss_contrast:{}".format(
                 train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss,train_loss_contrast))
         print("train_loss_dice:{},train_loss_ce:{}".format(train_loss_dice, train_loss_ce))
-        
-        # val_mean_f1, val_mean_pr, val_mean_re, val_mean_f1, val_mean_pr, val_mean_re,val_loss_sup
-        val_mean_f1, val_mean_AUC, val_mean_pr, val_mean_re, val_mean_acc, val_mean_sp, val_mean_jc, val_loss_sup \
-            = evaluate(#验证
-                epoch, Segment_model, predict_Discriminator_model, dataloader_val,
-                criterion)  # evaluate(epoch, model, val_target_loader,criterion, criterion_cps)
 
-        # val_mean_f1, val_mean_AUC, val_mean_pr, val_mean_re,val_mean_acc, val_mean_sp, val_mean_jc, val_loss_sup
-        data_row_f1score = [str(epoch), str(train_total_loss), str(val_mean_f1.item()), str(val_mean_AUC),
-                            str(val_mean_pr.item()), str(val_mean_re.item()), str(val_mean_acc), str(val_mean_sp),
-                            str(val_mean_jc)]
-        print("val_mean_f1",  val_mean_f1.item())
-        print("val_mean_AUC", val_mean_AUC)
-        print("val_mean_pr",  val_mean_pr.item())
-        print("val_mean_re",  val_mean_re.item())
-        print("val_mean_acc", val_mean_acc.item())
-        write_csv(val_score_path, data_row_f1score) # 保存在验证集下的实验结果
+
+
+        val_mean_f1 = predictor.evaluate(epoch, train_total_loss)
         if val_mean_f1 > best_val_f1: # F1分数是精确率和召回率的调和平均数
             best_val_f1 = val_mean_f1
             Logger.save_model_f1_S(Segment_model, epoch, val_mean_f1, optimizer_l) #保存到best_Segment.pt中
             Logger.save_model_f1_T(predict_Discriminator_model, epoch, val_mean_f1, optimizer_D) #保存到best_Dis.pt中
 
-        # if val_mean_AUC > best_val_AUC:
-        #     best_val_AUC = val_mean_AUC
-        #     Logger.save_model_f1_S(Segment_model, epoch, val_mean_AUC, optimizer_l)
-        #     Logger.save_model_f1_T(predict_Discriminator_model, epoch, val_mean_AUC, optimizer_D)
         if config.pseudo_label:
             predictor.nextInference()
             dataset_unsupervised.isFirstEpoch=False #已经保存了伪标签数据

@@ -60,8 +60,6 @@ def check_feature(sample_set_sup, sample_set_unsup):
     # pos_feature:   真实图像 全部易正样本的特征 [<=2000, 64]=[579,  64]
     # neg_feature:   合成和真实的图像 部分易负样本的特征 [<=500, 64]=[462, 64]
 
-
-
 class Trainer():
     def __init__(
         self,Segment_model, predict_Discriminator_model, dataloader_supervised, dataloader_unsupervised,

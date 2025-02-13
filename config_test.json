@@ -20,10 +20,10 @@
     "connectivityLossType":"entropy",
     "connectivityLossType-OLD":["ratio","entropy"],
 
-    "inputType": "NewLIOT2",
+    "inputType": "NewLIOT",
     "inputType-OLD": ["LIOT","Origin","NewLIOT","NewLIOT2"],
 
     "datapath": "../DataSet-images/XCAD_FreeCOS",
-    "logname":"./FreeCOS24",
+    "logname":"./FreeCOS23",
     "version": "2025.02.08--13:31"
 }
