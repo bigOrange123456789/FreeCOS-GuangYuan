@@ -2,7 +2,13 @@
     "seed": 12345,
     "batch_size": 4,
     "batch_size_val": 4,
-    
+
+    "seg":{
+        "weight_dice": 1.0,
+        "weight_ce"  : 0.1,
+        "damping":"reduce",
+        "damping-old":["constant","恒定"]
+    },
     "adv":{
         "weight": 0.25,
         "damping":"reduce",
@@ -30,6 +36,6 @@
     "inputType-OLD": ["LIOT","Origin","NewLIOT","NewLIOT2"],
 
     "datapath": "../DataSet-images/XCAD_FreeCOS",
-    "logname":"./FreeCOS23",
+    "logname":"./FreeCOS28",
     "version": "2025.02.08--13:31"
 }
