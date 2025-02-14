@@ -157,7 +157,7 @@ class Img():
         h, w = self.image.shape
         # print("a:",center_x,center_y)
         bendWeght=random.random() # 0-1
-        bendWeght=(bendWeght*2-1)*0.1*new_length # [ -0.1*l , 0.1*l ]
+        bendWeght=(bendWeght*2-1)*0.5*new_length # [ -0.1*l , 0.1*l ]
         for i in range(h):
             for j in range(w):
                 ####################开始插入实现弯曲的代码######################
@@ -170,7 +170,7 @@ class Img():
                         return (x0**2+y0**2)**0.5
                     k = normal(j-x,i-y)/(new_length) #在直线内的时候：k的数值应该是0-1
                     # print("b",i00,j00)
-                    if False:
+                    if True:
                         if k>1 or k<0:#该像素不在线段内部
                             continue
                     # # print("a",i00,j00)
