@@ -309,11 +309,11 @@ class Trainer():
         # 5.连通性损失
         if config.connectivityLoss:  # 使用连通损失
             loss_conn1 = ConnectivityAnalyzer(pred_sup_l).connectivityLoss(config.connectivityLossType)  # 合成监督
-            loss_conn2 = ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 无监督
+            loss_conn2 = ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 无/伪监督
             loss_conn = loss_conn1 + loss_conn2
-            if config.pseudo_label and isFirstEpoch == False:
-                loss_conn3 = ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 伪监督
-                loss_conn = loss_conn + loss_conn3
+            # if config.pseudo_label and isFirstEpoch == False:
+            #     loss_conn3 = ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 伪监督
+            #     loss_conn = loss_conn + loss_conn3
         else: loss_conn=0
 
         # 【1.合成监督、2.对抗、3.对比、4.伪监督、5.连通损失】
@@ -326,6 +326,7 @@ class Trainer():
         loss_adv = loss_seg_w + loss_adv_w + loss_contrast_w + loss_pseudo_w + loss_conn_w
 
         ############################################################################################################
+        # 【1.合成监督】
         pred_sup_l = pred_sup_l.detach() # 这样可以确保接下来不优化分割器
         # pred_sup_l： 类0-1标签的预测结果 shape=[4, 1, 256, 256]
         # “分离”出一个副本，这个副本在自动微分过程中不会被考虑用于梯度计算。
@@ -336,6 +337,7 @@ class Trainer():
         loss_D_src = loss_D_src / 8  # 损失函数加权
         # loss_D_src.backward(retain_graph=False)  # 计算判别器参数的梯度,并累加到网络参数的.grad属性中
 
+        # 【2.无/伪监督】
         pred_target = pred_target.detach()
         D_out_tar = predict_Discriminator_model(pred_target)  # 判别 无监督真实图片
 
