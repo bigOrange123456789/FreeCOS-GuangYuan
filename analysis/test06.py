@@ -1,3 +1,10 @@
+[
+    ["FreeCOS-GuangYuan01","r"],
+    ["FreeCOS-GuangYuan17","g"],
+    ["FreeCOS-GuangYuan18","b"],
+    ["FreeCOS-GuangYuan22","m"],
+    ["FreeCOS-GuangYuan23","c"]
+]
 info=[
     ["FreeCOS-GuangYuan01","r"],
     ["FreeCOS-GuangYuan02","g"],
@@ -191,7 +198,7 @@ def progressFile04(id,name,color):
     Index(['epoch', 'total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC'], dtype='object')
     '''
     
-    df[indicatorFlag] = df[indicatorFlag].apply(extract_float_from_tensor_string)
+    df[indicatorFlag] = df[indicatorFlag].apply(extract_float_from_tensor_string2)
 
     # 绘制折线图
     # plt.figure(figsize=(10, 6))  # 设置图形大小

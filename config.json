@@ -22,6 +22,6 @@
     "inputType": "LIOT",
 
     "datapath": "../DataSet-images/XCAD_FreeCOS5",
-    "logname":"./FreeCOS25",
+    "logname":"./FreeCOS26",
     "version": "2025.02.13--15:46"
 }
