@@ -105,6 +105,10 @@ def getMaxF1(df):
         else:
             value = float(value)
         config[i]=value
+    if "Dice" in result:
+        value = result["Dice"]
+        config["Dice"]=float(value)
+
         # print(value,"\n\n\n")
     #     # j=float(result[i])
     #     print(i,type(result[i]),isinstance(value, str))
@@ -256,8 +260,16 @@ def progressFile05(name,color):
     result = df[df['epoch'] == max_indicator_epoch]
     
     config0={}
+    if "Dice" in result:
+        value = result["Dice"]
+        config0["Dice"]=float(value)
+    # elif name=="FreeCOS-GuangYuan01":
+    #     config0['Dice']=0.661
+    else:
+        config0["Dice"]=0
     # for i in ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']:
-    for i in ['total_loss', 'Acc', 'Sp', 'AUC', 'f1', 'pr', 'recall', 'JC']:
+    # for i in ['total_loss', 'Acc', 'Sp', 'AUC', 'f1', 'pr', 'recall', 'JC']:
+    for i in ['Acc', 'Sp', 'AUC', 'f1', 'pr', 'recall', 'JC']:
     #     # print(dir(result[i]))
         # print(i)
         # print(result[i])
@@ -268,10 +280,12 @@ def progressFile05(name,color):
         else:
             value = float(value)
         config0[i]=value
+
     print(config0,"\n\n\n")
     if True:
         name=name.split("FreeCOS-GuangYuan")[1]
         name="Test"+name
+    
     config[name]={
         "data":config0,
         "color":color
