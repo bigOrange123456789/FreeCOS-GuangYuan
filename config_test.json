@@ -5,8 +5,8 @@
     
     "adv":{
         "weight": 0.25,
-        "damping":"nothing",
-        "damping-old":["increase","reduce","nothing"]
+        "damping":"reduce",
+        "damping-old":["increase","reduce","constant","默认衰减"]
     },
 
     "vessel3D": true,

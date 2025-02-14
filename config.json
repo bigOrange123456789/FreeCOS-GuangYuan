@@ -5,7 +5,7 @@
     
     "adv":{
         "weight": 0.25,
-        "damping":"nothing"
+        "damping":"constant"
     },
 
     "vessel3D": true,
