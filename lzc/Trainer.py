@@ -317,8 +317,20 @@ class Trainer():
         else: loss_conn=0
 
         # 【1.合成监督、2.对抗、3.对比、4.伪监督、5.连通损失】
+        def useW(l,c):
+            if c["damping"]=="increase":
+                l=l*damping
+            elif c["damping"]=="reduce":
+                l=l*(1-damping)
+            elif not c["damping"]=="constant":
+                print("The damping parameter in the configuration file is invalid! (配置文件中的damping参数不合法!)")
+                exit(0)
+            return l*c["weight"]
+            
         loss_seg_w = loss_dice + loss_ce * 0.1
-        loss_adv_w = loss_adv_target * damping * 0.25 # (当前batch的)对抗损失。 # damping的取值范围是: 1到0
+        loss_adv_w = useW(loss_adv_target, config.adv) 
+        # loss_adv_w = loss_adv_target * damping * 0.25 
+        # damping的取值范围是: 1到0
         loss_contrast_w = loss_contrast * 0.04  # (当前batch的)加权后的对比损失 # weight_contrast = 0.04  # 对比损失的权重
         loss_pseudo_w = loss_pseudo * ( 1 - damping ) * 0.01
         loss_conn_w = loss_conn * 0.1

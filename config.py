@@ -74,6 +74,7 @@ C.bn_momentum = 0.1
 
 C.cps_weight = 6
 
+
 ''' Our New Setting(我们自己的设置) '''
 # C.idxBatchPrint = C_["idxBatchPrint"]#不再每个idx都输出
 #1.是否使用通过体积渲染将血管添加到背景上
@@ -93,7 +94,11 @@ C.onlyMainObj  = C_["onlyMainObj"]
 C.connectivityLoss = C_["connectivityLoss"]
 C.connectivityLossType = C_["connectivityLossType"]
 #6.设置神经网络模型输入的图片格式
-C.inputType= C_["inputType"]
+C.inputType = C_["inputType"]
+######################################################################################################
+C.adv = C_["adv"]
+
+######################################################################################################
 
 """Image Config"""
 C.num_classes = 1

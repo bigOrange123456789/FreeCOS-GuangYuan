@@ -89,7 +89,7 @@ def main():
     elif config.inputType == "NewLIOT2":
         n_channels = 4
     else:
-        print("配置文件中的inputType参数不合法！")
+        print("配置文件中的inputType参数不合法!")
         exit(0)
     Segment_model = Single_contrast_UNet(n_channels, config.num_classes)
     # 我猜BN不放在Segment_model中的原因是：训练和评估这两种模式在使用的时候会有差异

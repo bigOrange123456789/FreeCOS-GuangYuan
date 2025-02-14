@@ -2,6 +2,12 @@
     "seed": 12345,
     "batch_size": 4,
     "batch_size_val": 4,
+    
+    "adv":{
+        "weight": 0.25,
+        "damping":"nothing",
+        "damping-old":["increase","reduce","nothing"]
+    },
 
     "vessel3D": true,
     "dePhase":1,
