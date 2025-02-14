@@ -33,9 +33,11 @@ class Img():
             center_x, center_y: 图案的中心点坐标。
         """
         # 找到所有非零像素点的坐标
+        print(type(self.image),np.sum(self.image))
         y_coords, x_coords = np.nonzero(self.image)
         
         # 计算中心点
+        print("x_coords",x_coords)
         center_x = int(np.mean(x_coords))
         center_y = int(np.mean(y_coords))
         
@@ -153,11 +155,39 @@ class Img():
         
         # 遍历图像中的每个像素
         h, w = self.image.shape
+        # print("a:",center_x,center_y)
+        bendWeght=random.random() # 0-1
+        bendWeght=(bendWeght*2-1)*0.1*new_length # [ -0.1*l , 0.1*l ]
         for i in range(h):
             for j in range(w):
+                ####################开始插入实现弯曲的代码######################
+                if True:
+                    # i00=int(i)
+                    # j00=int(j)
+                    # # print("c",i00,j00,h,w)
+                    # eps=1e-8
+                    def normal(x0,y0):
+                        return (x0**2+y0**2)**0.5
+                    k = normal(j-x,i-y)/(new_length) #在直线内的时候：k的数值应该是0-1
+                    # print("b",i00,j00)
+                    if False:
+                        if k>1 or k<0:#该像素不在线段内部
+                            continue
+                    # # print("a",i00,j00)
+                    def bend(k0):
+                        return (2*k0-1)**2
+                    # j=j + bend(k)*normal_x
+                    # i=i + bend(k)*normal_y
+                    ##################################
+                    be = bend(k) * bendWeght #be = bend(k) * 10.
+                    # print("a:",center_x,center_y)
+                    center_x2 = center_x + be * normal_x
+                    center_y2 = center_y + be * normal_y
+                    # print("b:",center_x2,center_y2)
+                ####################完成插入实现弯曲的代码######################
                 # 计算像素点到线段中心点的向量
-                pixel_vector_x = j - center_x
-                pixel_vector_y = i - center_y
+                pixel_vector_x = j - center_x2
+                pixel_vector_y = i - center_y2
                 
                 # 计算像素点到线段的投影距离
                 projection_length = abs(pixel_vector_x * normal_x + pixel_vector_y * normal_y)
@@ -175,12 +205,13 @@ class Img():
                     # 判断像素点是否在线段的长度范围内
                     if (pixel_to_start_x * direction_x + pixel_to_start_y * direction_y >= 0 and
                         pixel_to_end_x * direction_x + pixel_to_end_y * direction_y <= 0):
-                        self.image[i, j] = 255  # 设置像素值为255（白色）
+                        # print(i00,j00)
+                        self.image[i, j] = 255 # self.image[i, j] = 255  # 设置像素值为255（白色）
                         
                         distance = projection_length
                         radius   = width/2
                         thickness = 2*(radius**2-distance**2)**0.5
-                        self.thickness[i,j] = max(self.thickness[i,j],thickness)#255.#
+                        self.thickness[i,j] = max(self.thickness[i,j],thickness) # self.thickness[i,j] = max(self.thickness[i,j],thickness)#255.#
 
     def is_pattern_connected(self):
         # 将图像转换为二值图像（0为背景，1为图案）
@@ -388,14 +419,14 @@ while i<Num_image:
         print("sentence is too short (len="+str(len(sentence))+")",sentence)
         continue
     system.draw()
-    saved=system.img.save(
-        "./fake_very_smalltheta_label_1621/"+str(i)+'.png',
-        "./fake_very_smalltheta_1621/"+str(i)+'.png'
-        )
     # saved=system.img.save(
-    #     "./fake_very_smalltheta/"+str(i)+'_label.png',
-    #     "./fake_very_smalltheta/"+str(i)+'.png'
+    #     "./fake_very_smalltheta_label_1621/"+str(i)+'.png',
+    #     "./fake_very_smalltheta_1621/"+str(i)+'.png'
     #     )
+    saved=system.img.save(
+        "./fake_very_smalltheta/"+str(i)+'_label.png',
+        "./fake_very_smalltheta/"+str(i)+'.png'
+        )
     if saved:
         i=i+1
     # exit(0)
