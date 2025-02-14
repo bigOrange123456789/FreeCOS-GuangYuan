@@ -42,7 +42,7 @@ class Predictor():
         except OSError as error:
             print(f"创建文件夹 '{folder_path}' 时出错: {error}")
         self.val_score_path = folder_path + '/' + 'val_train_f1.csv'
-        csv_head = ["epoch", "total_loss", "f1", "AUC", "pr", "recall", "Acc", "Sp", "JC","Dice"]
+        csv_head = ["epoch", "total_loss", "f1", "AUC", "pr", "recall", "Acc", "Sp", "JC","Dice","Dice2"]
         create_csv(self.val_score_path, csv_head)
 
         if False:  # 加载保存的状态字典
@@ -61,7 +61,8 @@ class Predictor():
         else:  # 将模型设置为评价模式
             self.Segment_model.eval()
         with torch.no_grad():  # 不进行梯度计算
-            val_sum_loss_sup = 0
+            val_sum_Dice = 0
+            val_sum_Dice2 = 0
             val_sum_f1 = 0
             val_sum_pr = 0
             val_sum_re = 0
@@ -99,12 +100,14 @@ class Predictor():
 
                     max_l = torch.where(val_pred_sup_l >= 0.5, 1, 0)
                     val_max_l = max_l.float()  # 1.<-1; 0.<-0;
-                    val_loss_sup = self.criterion(val_pred_sup_l, val_gts)  # 监督损失
+                    val_Dice = self.criterion(val_pred_sup_l, val_gts)  # 监督损失
+                    val_Dice2 = self.criterion(val_max_l, val_gts)  # 监督损失
 
                     val_f1, val_precision, val_recall, val_Sp, val_Acc, val_jc, val_AUC = compute_allRetinal(val_max_l,
                                                                                                              val_pred_sup_l,
                                                                                                              val_gts)
-                    val_sum_loss_sup += val_loss_sup.item() #Dice
+                    val_sum_Dice += val_Dice.item() #Dice
+                    val_sum_Dice2 += val_Dice2.item()  # Dice
                     val_sum_f1 += val_f1
                     val_sum_pr += val_precision
                     val_sum_re += val_recall
@@ -120,9 +123,9 @@ class Predictor():
             val_mean_acc = val_sum_acc / len(loader)
             val_mean_sp = val_sum_sp / len(loader)
             val_mean_jc = val_sum_jc / len(loader)
-            val_mean_Dice = val_sum_loss_sup / len(loader)
-
-            return val_mean_f1, val_mean_pr, val_mean_re, val_mean_AUC, val_mean_acc, val_mean_sp, val_mean_jc,val_mean_Dice
+            val_mean_Dice = val_sum_Dice / len(loader)
+            val_mean_Dice2 = val_sum_Dice2 / len(loader)
+            return val_mean_f1, val_mean_pr, val_mean_re, val_mean_AUC, val_mean_acc, val_mean_sp, val_mean_jc,val_mean_Dice,val_mean_Dice2
 
     def lastInference(self) :
         path = os.path.join('logs', config.logname + ".log", "inference")
@@ -184,54 +187,12 @@ class Predictor():
             Segment_model.eval()
         with torch.no_grad():  # 不进行梯度计算
 
-            '''
-            val_sum_loss_sup = 0
-            val_sum_f1 = 0
-            val_sum_pr = 0
-            val_sum_re = 0
-            val_sum_sp = 0
-            val_sum_acc = 0
-            val_sum_jc = 0
-            val_sum_AUC = 0
-            print('begin eval')
-            for val_idx, minibatch in enumerate(val_target_loader):
-                val_imgs = minibatch['img']  # 图片数据
-                val_gts = minibatch['anno_mask']  # 手工标签
-                val_imgs = val_imgs.cuda(non_blocking=True)
-                val_gts = val_gts.cuda(non_blocking=True)
-                # NCHW
-                val_pred_sup_l, sample_set_unsup, _ = Segment_model(val_imgs, mask=None, trained=False, fake=False)
-                
-
-                max_l = torch.where(val_pred_sup_l >= 0.5, 1, 0)
-                val_max_l = max_l.float()  # 1.<-1; 0.<-0;
-                val_loss_sup = criterion(val_pred_sup_l, val_gts)  # 监督损失
-
-                val_f1, val_precision, val_recall, val_Sp, val_Acc, val_jc, val_AUC = compute_allRetinal(val_max_l,
-                                                                                                         val_pred_sup_l,
-                                                                                                         val_gts)
-                val_sum_loss_sup += val_loss_sup.item()
-                val_sum_f1 += val_f1
-                val_sum_pr += val_precision
-                val_sum_re += val_recall
-                val_sum_AUC += val_AUC
-                val_sum_sp += val_Sp
-                val_sum_acc += val_Acc
-                val_sum_jc += val_jc
-            val_mean_f1 = val_sum_f1 / len(val_target_loader)
-            val_mean_pr = val_sum_pr / len(val_target_loader)
-            val_mean_re = val_sum_re / len(val_target_loader)
-            val_mean_AUC = val_sum_AUC / len(val_target_loader)
-            val_mean_acc = val_sum_acc / len(val_target_loader)
-            val_mean_sp = val_sum_sp / len(val_target_loader)
-            val_mean_jc = val_sum_jc / len(val_target_loader)
-            '''
-            val_mean_f1, val_mean_pr, val_mean_re, val_mean_AUC, val_mean_acc, val_mean_sp, val_mean_jc,val_mean_Dice =\
+            val_mean_f1, val_mean_pr, val_mean_re, val_mean_AUC, val_mean_acc, val_mean_sp, val_mean_jc,val_mean_Dice,val_mean_Dice2 =\
                 self.__inference( self.dataloader_val , None )
 
             data_row_f1score = [str(epoch), str(train_total_loss), str(val_mean_f1.item()), str(val_mean_AUC),
                                 str(val_mean_pr.item()), str(val_mean_re.item()), str(val_mean_acc),
-                                str(val_mean_sp), str(val_mean_jc),str(val_mean_Dice)]
+                                str(val_mean_sp), str(val_mean_jc),str(val_mean_Dice),str(val_mean_Dice2)]
             print("val_mean_f1", val_mean_f1.item())
             print("val_mean_AUC", val_mean_AUC)
             print("val_mean_pr", val_mean_pr.item())

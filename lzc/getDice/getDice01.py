@@ -273,6 +273,7 @@ def evaluate(epoch, Segment_model, predict_Discriminator_model, val_target_loade
         predict_Discriminator_model.eval()
     with torch.no_grad():
         val_sum_loss_sup = 0
+        val_sum_loss_sup2 = 0
         val_sum_f1 = 0
         val_sum_pr = 0
         val_sum_re = 0
@@ -295,6 +296,7 @@ def evaluate(epoch, Segment_model, predict_Discriminator_model, val_target_loade
             max_l = torch.where(val_pred_sup_l >= 0.5, 1, 0)
             val_max_l = max_l.float()
             val_loss_sup = criterion(val_pred_sup_l, val_gts)
+            val_loss_sup2 = criterion(val_max_l, val_gts)
 
             current_validx = epoch * config.niters_per_epoch + val_idx
             val_loss = val_loss_sup
@@ -302,6 +304,7 @@ def evaluate(epoch, Segment_model, predict_Discriminator_model, val_target_loade
                                                                                                      val_pred_sup_l,
                                                                                                      val_gts)
             val_sum_loss_sup += val_loss_sup.item()
+            val_sum_loss_sup2 += val_loss_sup2.item()
             val_sum_f1 += val_f1
             val_sum_pr += val_precision
             val_sum_re += val_recall
@@ -318,7 +321,9 @@ def evaluate(epoch, Segment_model, predict_Discriminator_model, val_target_loade
         val_mean_sp = val_sum_sp / len(val_target_loader)
         val_mean_jc = val_sum_jc / len(val_target_loader)
         val_loss_sup = val_sum_loss_sup / len(val_target_loader)
-        print("Dice为",val_loss_sup) #0.3410362752657088
+        val_loss_sup2 = val_sum_loss_sup2 / len(val_target_loader)
+        print("Dice1为",1-val_loss_sup ) # 0.3410362752657088
+        print("Dice2为",1-val_loss_sup2) # Dice为 0.33882927516150096
         exit(0)
         return val_mean_f1, val_mean_AUC, val_mean_pr, val_mean_re, val_mean_acc, val_mean_sp, val_mean_jc, val_loss_sup
 

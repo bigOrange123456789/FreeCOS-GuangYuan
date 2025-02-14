@@ -260,11 +260,20 @@ def progressFile05(name,color):
     result = df[df['epoch'] == max_indicator_epoch]
     
     config0={}
-    if "Dice" in result:
+    # if name=="FreeCOS-GuangYuan26" or name=="FreeCOS-GuangYuan27":
+    #     value = result["Dice"]
+    #     config0["Dice"]=1-float(value)
+    # elif "Dice2" in result:
+    #     value = result["Dice2"]
+    #     config0["Dice"]=1-float(value)
+    
+    if "Dice2" in result:
+        value = result["Dice2"]
+        config0["Dice"]=1-float(value)
+    elif "Dice" in result:
         value = result["Dice"]
-        config0["Dice"]=float(value)
-    # elif name=="FreeCOS-GuangYuan01":
-    #     config0['Dice']=0.661
+        config0["Dice"]=1-float(value)
+    elif name=="FreeCOS-GuangYuan01": config0['Dice']= 0.6611683742394523 # 0.661
     else:
         config0["Dice"]=0
     # for i in ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']:

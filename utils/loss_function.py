@@ -10,10 +10,12 @@ class DiceLoss(nn.Module):
         self.epsilon = 1e-5
 
     def forward(self, predict, target): #预测值、目标值
+        # predict:[4,1,256,256]
         assert predict.size() == target.size(), "the size of predict and target must be equal."
-        num = predict.size(0)
 
-        pre = predict.view(num, -1)
+        num = predict.size(0) # 4
+
+        pre = predict.view(num, -1) # [ 4 , 256 * 256 ]
         tar = target.view(num, -1)
 
         intersection = (pre * tar).sum(-1).sum()
