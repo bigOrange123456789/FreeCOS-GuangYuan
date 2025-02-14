@@ -22,7 +22,8 @@ import csv
 from utils.loss_function import DiceLoss, Contrastloss, ContrastRegionloss, ContrastRegionloss_noedge, \
     ContrastRegionloss_supunsup, ContrastRegionloss_NCE, ContrastRegionloss_AllNCE, ContrastRegionloss_quaryrepeatNCE, Triplet
 from base_model.discriminator import PredictDiscriminator, PredictDiscriminator_affinity
-
+from sklearn.metrics import roc_auc_score
+import numpy as np
 def create_csv(path, csv_head):
     with open(path, 'w', newline='') as f:
         csv_write = csv.writer(f)
@@ -281,6 +282,7 @@ def evaluate(epoch, Segment_model, predict_Discriminator_model, val_target_loade
         val_sum_acc = 0
         val_sum_jc = 0
         val_sum_AUC = 0
+        val_sum_AUC2 = 0
         F1_best = 0
         print('begin eval')
         ''' supervised part '''
@@ -312,11 +314,16 @@ def evaluate(epoch, Segment_model, predict_Discriminator_model, val_target_loade
             val_sum_sp += val_Sp
             val_sum_acc += val_Acc
             val_sum_jc += val_jc
-            end_time = time.time()
+            
+            pred_1D = np.array(val_pred_sup_l.cpu()).flatten() # (262144,)<-[1, 1, 512, 512]
+            gt_1D = np.array(val_gts.cpu()).flatten()
+            val_sum_AUC2 += roc_auc_score(gt_1D, pred_1D)
+
         val_mean_f1 = val_sum_f1 / len(val_target_loader)
         val_mean_pr = val_sum_pr / len(val_target_loader)
         val_mean_re = val_sum_re / len(val_target_loader)
         val_mean_AUC = val_sum_AUC / len(val_target_loader)
+        val_mean_AUC2 = val_sum_AUC2 / len(val_target_loader)
         val_mean_acc = val_sum_acc / len(val_target_loader)
         val_mean_sp = val_sum_sp / len(val_target_loader)
         val_mean_jc = val_sum_jc / len(val_target_loader)
@@ -324,6 +331,9 @@ def evaluate(epoch, Segment_model, predict_Discriminator_model, val_target_loade
         val_loss_sup2 = val_sum_loss_sup2 / len(val_target_loader)
         print("Dice1为",1-val_loss_sup ) # 0.3410362752657088
         print("Dice2为",1-val_loss_sup2) # Dice为 0.33882927516150096
+        print("AUC1为:",val_mean_AUC)
+        print("AUC2为:",val_mean_AUC2)
+
         exit(0)
         return val_mean_f1, val_mean_AUC, val_mean_pr, val_mean_re, val_mean_acc, val_mean_sp, val_mean_jc, val_loss_sup
 

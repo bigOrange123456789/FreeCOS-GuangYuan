@@ -35,7 +35,7 @@ with open('test.json', 'r', encoding='utf-8') as file:
     progressFile("FreeCOS-GuangYuan17",'c')
 '''
 
-indicatorFlag='f1'
+indicatorFlag='AUC'
 indicatorFlagList = ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
 assert indicatorFlag in indicatorFlagList
 # pr : precision
@@ -48,6 +48,11 @@ assert indicatorFlag in indicatorFlagList
     Acc = (tp+tn)/(tp+fn+tn+fp)         # accuracy：准确率                  (全预测正确率)         全部的正确率:准确率accuracy
     Sp = tn/(tn+fp+ epsilon)            # 特异性： 预测为F的这些样本中，实际为F的比例 (预测F的正确率) 背景的正确率:特异性specificity
     jc_score = jc(pred,gt) #Jaccard系数: 重叠度
+    AUC 在曲线下方的面积。一般默认指的是ROC曲线。所以完整的缩写是ROC_AUC
+        ROC曲线: 随着伪主区域的逐渐增加,
+            TPR:在所有实际为阳性的样本中,被正确地判断为阳性之比率。
+            FPR:在所有实际为阴性的样本中,被错误地判断为阳性之比率。
+    AUC是阈值无关,而A、P、R三者都是阈值相关的。
 '''
 
 import pandas as pd
@@ -289,6 +294,9 @@ def progressFile05(name,color):
         else:
             value = float(value)
         config0[i]=value
+    if "AUC2" in result:
+        value = result["AUC2"]
+        config0["AUC"]=float(value)
 
     print(config0,"\n\n\n")
     if True:

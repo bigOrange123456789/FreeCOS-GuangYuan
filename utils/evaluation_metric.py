@@ -155,7 +155,8 @@ def compute_allRetinal(pred, pred_con, gt):
     Sp = tn/(tn+fp+ epsilon) # 特异性： 预测为F的这些样本中，实际为F的比例 (预测F的正确率)
     jc_score = jc(pred,gt) #Jaccard系数: 重叠度
     AUC = calAUC(pred_con, gt)
-    return f1_score * 100, precision * 100, recall * 100, Sp * 100, Acc * 100, jc_score *100, AUC
+    AUC2 = calAUC(pred, gt)
+    return f1_score * 100, precision * 100, recall * 100, Sp * 100, Acc * 100, jc_score *100, AUC, AUC2
 
 
 if __name__ == '__main__':
