@@ -35,7 +35,7 @@ with open('test.json', 'r', encoding='utf-8') as file:
     progressFile("FreeCOS-GuangYuan17",'c')
 '''
 
-indicatorFlag='AUC'
+indicatorFlag='f1'
 indicatorFlagList = ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
 assert indicatorFlag in indicatorFlagList
 # pr : precision

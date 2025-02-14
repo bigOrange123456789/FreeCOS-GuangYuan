@@ -1,4 +1,6 @@
+from config import config
 import random
+
 
 import torch
 import os.path
@@ -12,7 +14,9 @@ from Datasetloader.torch_LIOT import trans_liot, trans_NewLiot, trans_NewLiot2, 
 #trans_list NCHW
 import cv2
 
-from config import config
+# 设置随机数种子
+random.seed(config.seed)
+np.random.seed(42)
 
 def low_freq_mutate_np( amp_src, amp_trg, L=0.1 ):
     a_src = np.fft.fftshift( amp_src, axes=(-2, -1) )
