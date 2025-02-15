@@ -20,3 +20,4 @@ def getPath_csv():
         os.makedirs(folder_path, exist_ok=True)  # exist_ok=True 表示如果文件夹已存在，不会抛出异常
     except OSError as error:
         print(f"创建文件夹 '{folder_path}' 时出错: {error}")
+    return folder_path
