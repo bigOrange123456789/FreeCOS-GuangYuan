@@ -9,19 +9,20 @@ from PIL import Image
 
 from lzc.ConnectivityAnalyzer import ConnectivityAnalyzer
 from utils.evaluation_metric import computeF1, compute_allRetinal
-import csv
-def create_csv(path, csv_head):
-    with open(path, 'w', newline='') as f:
-        csv_write = csv.writer(f)
-        # csv_head = ["good","bad"]
-        csv_write.writerow(csv_head)
+# import csv
+# def create_csv(path, csv_head):
+#     with open(path, 'w', newline='') as f:
+#         csv_write = csv.writer(f)
+#         # csv_head = ["good","bad"]
+#         csv_write.writerow(csv_head)
 
-def write_csv(path, data_row):
-    # path  = "aa.csv"
-    with open(path, 'a+', newline='') as f:
-        csv_write = csv.writer(f)
-        # data_row = ["1","2"]
-        csv_write.writerow(data_row)
+# def write_csv(path, data_row):
+#     # path  = "aa.csv"
+#     with open(path, 'a+', newline='') as f:
+#         csv_write = csv.writer(f)
+#         # data_row = ["1","2"]
+#         csv_write.writerow(data_row)
+from lzc.csv_lib import create_csv,write_csv,getPath_csv
 
 class Predictor():
     def __init__(
@@ -36,11 +37,12 @@ class Predictor():
         self.dataloader_unsup=dataloader_unsupervised
         self.criterion=criterion # DiceLoss()
 
-        folder_path = os.path.join('logs', config.logname + '.log')
-        try:# 使用 os.makedirs 创建文件夹，如果父文件夹不存在也会一并创建
-            os.makedirs(folder_path, exist_ok=True)  # exist_ok=True 表示如果文件夹已存在，不会抛出异常
-        except OSError as error:
-            print(f"创建文件夹 '{folder_path}' 时出错: {error}")
+        # folder_path = os.path.join('logs', config.logname + '.log')
+        # try:# 使用 os.makedirs 创建文件夹，如果父文件夹不存在也会一并创建
+        #     os.makedirs(folder_path, exist_ok=True)  # exist_ok=True 表示如果文件夹已存在，不会抛出异常
+        # except OSError as error:
+        #     print(f"创建文件夹 '{folder_path}' 时出错: {error}")
+        folder_path = getPath_csv()
         self.val_score_path = folder_path + '/' + 'val_train_f1.csv'
         csv_head = ["epoch", "total_loss", "f1", "AUC", "AUC2", "pr", "recall", "Acc", "Sp", "JC","Dice","Dice2"]
         create_csv(self.val_score_path, csv_head)

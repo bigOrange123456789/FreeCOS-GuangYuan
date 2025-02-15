@@ -13,6 +13,8 @@ from utils.loss_function import ContrastRegionloss_quaryrepeatNCE
 
 from lzc.BCELoss_lzc import BCELoss_lzc
 from lzc.ConnectivityAnalyzer import ConnectivityAnalyzer
+from lzc.csv_lib import create_csv,write_csv,getPath_csv
+
 
 def check_feature(sample_set_sup, sample_set_unsup):
     """
@@ -97,6 +99,30 @@ class Trainer():
         self.target_label = 1  # 目标数据域:真实血管 #对抗学习的目的是让神经网络能够屏蔽数据域的差异，让两个数据域都能输出正确的结果
         self.criterion_contrast = ContrastRegionloss_quaryrepeatNCE()
 
+        self.csv_loss_path = getPath_csv() + '/' + 'train_loss.csv'
+        self.lossNameList = [
+            "loss_D_tar",
+            "loss_D_src",
+            "loss_adv",
+            "loss_ce",
+            "loss_dice",
+
+            # 【1.合成监督、2.对抗、3.对比、4.伪监督、5.连通损失】
+            "loss_seg_w",
+            "loss_adv_w",
+            "loss_contrast_w",
+            "loss_pseudo_w",
+            "loss_conn_w",
+
+            "loss_adv",
+            "loss_contrast",
+            "loss_pseudo",
+            "loss_conn"]
+        csv_head = ["epoch"]
+        for i in self.lossNameList:
+            csv_head.append(i)
+        create_csv(self.csv_loss_path, csv_head)
+
     def train(self,epoch,isFirstEpoch):
         Segment_model = self.Segment_model
         predict_Discriminator_model = self.predict_Discriminator_model
@@ -144,6 +170,11 @@ class Trainer():
         sum_contrastloss = 0
         sum_celoss = 0
         sum_diceloss = 0
+        # sum_pseudo = 0
+        # sum_conn =0
+        total_loss={}
+        for i in self.lossNameList:
+            total_loss[i]=0
 
         print('begin train')
         ''' supervised part '''
@@ -178,15 +209,27 @@ class Trainer():
             self.__backward( loss['loss_adv'] , loss['loss_D_src'] + loss['loss_D_tar'] )
             lr = self.__step(current_idx)
 
+            for i in total_loss:
+                total_loss[i] += loss[i]
+
+            # 【1.合成监督、2.对抗、3.对比、4.伪监督、5.连通损失】
+            # 1.合成监督
             sum_loss_seg += loss['loss_seg_w'].item()  # (本次的epoch的)合成监督损失
-            sum_contrastloss += loss['loss_contrast_w']  # (本次的epoch的)加权后的对比损失
-            sum_adv_loss += loss['loss_adv_w'].item()  # (本次的epoch的)对抗损失
             sum_celoss += loss['loss_ce']  # (本次的epoch的)CE损失
             sum_diceloss += loss['loss_dice'].item()  # (本次的epoch的)DICE损失
+            # 2.对抗
+            sum_adv_loss += loss['loss_adv_w'].item()  # (本次的epoch的)对抗损失
+            # 3.对比
+            sum_contrastloss += loss['loss_contrast_w'].item()  # (本次的epoch的)加权后的对比损失
+            # # 4.伪监督pseudo
+            # sum_pseudo += loss['loss_contrast_w'].item()
+            # # 5.连通conn
+            # sum_conn += loss['loss_contrast_w'].item()
+            
             sum_Dsrc_loss += loss['loss_D_src'].item()  # (本次的epoch的)源数据域 判决器损失
             sum_Dtar_loss += loss['loss_D_tar'].item()  # (本次的epoch的)目标数据域 判别器损失
             sum_contrastloss += loss['loss_contrast_w']  # (本次的epoch的)对比损失
-            sum_totalloss = sum_totalloss + sum_Dtar_loss + sum_Dsrc_loss + sum_adv_loss + sum_loss_seg + sum_contrastloss
+            sum_totalloss += loss['loss_adv'].item() #sum_totalloss + sum_Dtar_loss + sum_Dsrc_loss + sum_adv_loss + sum_loss_seg + sum_contrastloss
             # 这个单batch的总损失在计算后没有被使用
 
             print_str = 'Epoch{}/{}'.format(epoch, config.nepochs) \
@@ -201,6 +244,12 @@ class Trainer():
                         + ' loss_contrast=%.4f' % loss['loss_contrast_w']
             # if idx%config.idxBatchPrint==0:
             pbar.set_description(print_str, refresh=False)  # 输出本batch的各项损失
+
+        lossSave=[epoch]
+        for i in total_loss:
+            lossSave.append( total_loss[i] / len(pbar) )
+        write_csv(self.csv_loss_path, lossSave)
+        
 
         train_loss_seg = sum_loss_seg / len(pbar)  # 伪监督(CE+DICE)
         train_loss_Dtar = sum_Dtar_loss / len(pbar)  # 判别器-合成目标数据
@@ -381,7 +430,12 @@ class Trainer():
             "loss_adv_w":loss_adv_w,
             "loss_contrast_w":loss_contrast_w,
             "loss_pseudo_w":loss_pseudo_w,
-            "loss_conn_w":loss_conn_w
+            "loss_conn_w":loss_conn_w,
+
+            "loss_adv":loss_adv,
+            "loss_contrast":loss_contrast,
+            "loss_pseudo":loss_pseudo,
+            "loss_conn":loss_conn
         }
 
     def __backward(self,loss_adv,loss_D):
