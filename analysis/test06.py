@@ -35,7 +35,7 @@ with open('test.json', 'r', encoding='utf-8') as file:
     progressFile("FreeCOS-GuangYuan17",'c')
 '''
 
-indicatorFlag='f1'
+indicatorFlag='total_loss'
 indicatorFlagList = ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
 assert indicatorFlag in indicatorFlagList
 # pr : precision
@@ -139,7 +139,7 @@ def progressFile03(name,color):
     Index(['epoch', 'total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC'], dtype='object')
     '''
     
-    df[indicatorFlag] = df[indicatorFlag].apply(extract_float_from_tensor_string)
+    df[indicatorFlag] = df[indicatorFlag].apply(extract_float_from_tensor_string2)
 
     # 绘制折线图
     # plt.figure(figsize=(10, 6))  # 设置图形大小
@@ -148,6 +148,9 @@ def progressFile03(name,color):
 
     # # 隐藏纵坐标轴的刻度
     # plt.yticks([])
+
+    if indicatorFlag=='total_loss':
+        return
 
     # 绘制竖直直线
     max_indicator_epoch1 = df.loc[df[indicatorFlag].idxmax(), 'epoch']

@@ -149,7 +149,7 @@ class Trainer():
         ''' supervised part '''
         for idx in pbar:
             current_idx = epoch * config.niters_per_epoch + idx
-            damping = (1 - current_idx / total_iteration)  # 剩余工作量(damping本意指阻尼)
+            damping = (1 - current_idx / total_iteration)  # 剩余工作量(damping本意指阻尼) #1->0
             optimizer_l.zero_grad()
             optimizer_D.zero_grad()
             '''
@@ -320,25 +320,25 @@ class Trainer():
         def useW_seg(l_d,l_c,c):
             l = l_d * c["weight_dice"] + l_c * c["weight_ce"]
             if c["damping"]=="increase":
-                l=l*damping
-            elif c["damping"]=="reduce":
                 l=l*(1-damping)
+            elif c["damping"]=="reduce":
+                l=l*damping
             elif not c["damping"]=="constant":
                 print("The damping parameter in the configuration file is invalid! (配置文件中的damping参数不合法!)")
                 exit(0)
             return l
         def useW(l,c):
             if c["damping"]=="increase":
-                l=l*damping
-            elif c["damping"]=="reduce":
                 l=l*(1-damping)
+            elif c["damping"]=="reduce":
+                l=l*damping # damping:剩余工作量(阻尼) #1->0
             elif not c["damping"]=="constant":
                 print("The damping parameter in the configuration file is invalid! (配置文件中的damping参数不合法!)")
                 exit(0)
             return l*c["weight"]
         
             
-        loss_seg_w = useW_seg(loss_dice,loss_ce,config.seg)
+        loss_seg_w = useW_seg(loss_dice,loss_ce,config.seg) # damping:剩余工作量(阻尼) #1->0
         # loss_seg_w = loss_dice + loss_ce * 0.1
         loss_adv_w = useW(loss_adv_target, config.adv) 
         # loss_adv_w = loss_adv_target * damping * 0.25 
