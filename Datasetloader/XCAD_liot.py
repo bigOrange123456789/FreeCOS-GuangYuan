@@ -455,8 +455,8 @@ class DatasetXCAD_aug(data.Dataset):
         background_array = np.asarray(background_img, np.float32)  # 背景 <PIL.Image.Image> -> <numpy.ndarray>
         def dePhase1(img,MaintainRange): #用于去除图片中的傅里叶相位
             if MaintainRange:
-                min1 = np.min(img) # 计算像素的最小值
-                ran1 = np.max(img) - min1
+                min1 = max(np.min(img),0.) # 计算像素的最小值
+                ran1 = min(np.max(img),255.) - min1
 
             img = np.expand_dims(img, axis=2) # (512, 512) -> (512, 512, 1)
             img = img.transpose((2, 0, 1)) # 通过转置操作，改变维度顺序
@@ -475,11 +475,13 @@ class DatasetXCAD_aug(data.Dataset):
             src_in_trg = np.real(src_in_trg) # 从复数数组中提取实部。
             
             if MaintainRange:
+                eps=1e-8
                 img_FDA = src_in_trg
                 min2 = np.min(img_FDA) # 计算像素的最小值
                 ran2 = np.max(img_FDA) - min2
-                img_FDA = (img_FDA-min2)/ran2
+                img_FDA = (img_FDA-min2)/(ran2+eps)
                 img_FDA = img_FDA * ran1 + min1
+                img_FDA = np.clip(img_FDA, 0, 255.)#限制像素的最小值为0、最大值为255
             else:
                 img_FDA = np.clip(src_in_trg, 0, 255.)#限制像素的最小值为0、最大值为255
             img_FDA = np.squeeze(img_FDA,axis = 0) # (1, 512, 512) -> (512, 512)

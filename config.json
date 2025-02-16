@@ -1,22 +1,22 @@
 {
     "seed": 12345,
-    "batch_size": 4,
-    "batch_size_val": 4,
-
+    "batch_size": 15,
+    "batch_size_val": 16,
+    
     "seg":{
         "weight_dice": 1.0,
         "weight_ce"  : 0.1,
-        "damping":"reduce",
+        "damping":"constant",
         "damping-old":["constant","恒定"]
     },
     "adv":{
         "weight": 0.25,
-        "damping":"reduce",
-        "damping-old":["increase","reduce","constant","默认衰减"]
+        "damping":"constant",
+        "damping-old":["reduce","默认衰减"]
     },
 
     "vessel3D": true,
-    "dePhase":1,
+    "dePhase":3,
 
     "ASL": {
         "gamma_neg":0, 
@@ -30,12 +30,10 @@
 
     "connectivityLoss":false,
     "connectivityLossType":"entropy",
-    "connectivityLossType-OLD":["ratio","entropy"],
 
     "inputType": "NewLIOT",
-    "inputType-OLD": ["LIOT","Origin","NewLIOT","NewLIOT2"],
 
-    "datapath": "../DataSet-images/XCAD_FreeCOS",
+    "datapath": "../DataSet-images/XCAD_FreeCOS5",
     "datapathTrain":{
         "img_unsup":"img",
         
@@ -47,6 +45,6 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "logname":"./FreeCOS28",
-    "version": "2025.02.08--13:31"
+    "logname":"./FreeCOS32",
+    "version": "2025.02.16--19:46"
 }

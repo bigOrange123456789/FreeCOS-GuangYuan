@@ -17,6 +17,7 @@
 
     "vessel3D": true,
     "dePhase":1,
+    "dePhase-old":[0,1,2,3],
 
     "ASL": {
         "gamma_neg":0, 
