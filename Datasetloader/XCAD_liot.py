@@ -464,6 +464,7 @@ class DatasetXCAD_aug(data.Dataset):
             src_in_trg = np.real(src_in_trg) # 从复数数组中提取实部。
             
             if MaintainRange:
+                img_FDA = src_in_trg
                 min2 = np.min(img_FDA) # 计算像素的最小值
                 ran2 = np.max(img_FDA) - min2
                 img_FDA = (img_FDA-min2)/ran2
