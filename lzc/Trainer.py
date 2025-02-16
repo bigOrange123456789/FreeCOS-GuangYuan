@@ -340,7 +340,11 @@ class Trainer():
                 pos_feature:   真实图像 全部易正样本的特征 [<=2000, 64]=[579,  64]       ->len=579 
                 neg_feature:   合成和真实的图像 部分易负样本的特征 [<=500, 64]=[462, 64]   ->len=462
             '''
-        else: loss_contrast = 0
+        else:
+            loss_contrast = torch.tensor(0.0) # torch.zeros(0, dtype=torch.float32) # 0
+            if torch.cuda.is_available():
+                device = torch.device("cuda")  # 设定设备为GPU
+                loss_contrast = loss_contrast.to(device)
 
         # 4.伪监督损失
         if config.pseudo_label and isFirstEpoch == False:
@@ -357,7 +361,11 @@ class Trainer():
                     gamma_pos=config.gamma_pos,
                     gamma_neg=config.gamma_neg)
             loss_pseudo = criterion_bce2(pred_target, gts_pseudo)
-        else: loss_pseudo = 0
+        else:
+            loss_pseudo = torch.tensor(0.0) # torch.zeros(0, dtype=torch.float32) # 0
+            if torch.cuda.is_available():
+                device = torch.device("cuda")  # 设定设备为GPU
+                loss_pseudo = loss_pseudo.to(device)
 
         # 5.连通性损失
         if config.connectivityLoss:  # 使用连通损失
@@ -367,7 +375,12 @@ class Trainer():
             # if config.pseudo_label and isFirstEpoch == False:
             #     loss_conn3 = ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 伪监督
             #     loss_conn = loss_conn + loss_conn3
-        else: loss_conn=0
+        else:
+            # loss_conn = torch.zeros(0, dtype=torch.float32) # 0
+            loss_conn = torch.tensor(0.0)  # torch.zeros(0, dtype=torch.float32) # 0
+            if torch.cuda.is_available():
+                device = torch.device("cuda")  # 设定设备为GPU
+                loss_conn = loss_conn.to(device)
 
         # 【1.合成监督、2.对抗、3.对比、4.伪监督、5.连通损失】
         def useW_seg(l_d,l_c,c):
@@ -418,6 +431,13 @@ class Trainer():
         pred_target = pred_target.detach()
         D_out_tar = predict_Discriminator_model(pred_target)  # 判别 无监督真实图片
 
+        if False:#测试代码
+            print("D_out_tar",D_out_tar.shape,type(D_out_tar))
+            print("D_out_tar",D_out_tar)
+            print()
+            a=F.sigmoid(D_out_tar)
+            b=torch.FloatTensor(D_out_tar.data.size()).fill_(target_label).cuda()
+            bce_loss(a,b)
         loss_D_tar = bce_loss(F.sigmoid(D_out_tar), torch.FloatTensor(
             D_out_tar.data.size()).fill_(target_label).cuda())  # 判别器的目标：无监督真实图片->目标数据域
         loss_D_tar = loss_D_tar / 8  # bias #损失函数加权
