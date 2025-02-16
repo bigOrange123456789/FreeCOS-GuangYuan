@@ -247,8 +247,9 @@ class Trainer():
 
         lossSave=[epoch]
         # for i in total_loss:
-        for i in self.lossNameList:
-            lossSave.append( total_loss[i] / len(pbar) )
+        for i in range(len(self.lossNameList)):
+            id = self.lossNameList[i]
+            lossSave.append( total_loss[id] / len(pbar) )
         write_csv(self.csv_loss_path, lossSave)
         
 
