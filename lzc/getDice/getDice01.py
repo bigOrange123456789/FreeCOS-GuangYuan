@@ -24,6 +24,7 @@ from utils.loss_function import DiceLoss, Contrastloss, ContrastRegionloss, Cont
 from base_model.discriminator import PredictDiscriminator, PredictDiscriminator_affinity
 from sklearn.metrics import roc_auc_score
 import numpy as np
+from PIL import Image
 def create_csv(path, csv_head):
     with open(path, 'w', newline='') as f:
         csv_write = csv.writer(f)
@@ -294,6 +295,23 @@ def evaluate(epoch, Segment_model, predict_Discriminator_model, val_target_loade
             val_gts = val_gts.cuda(non_blocking=True)
             # NCHW
             val_pred_sup_l, sample_set_unsup, _ = Segment_model(val_imgs, mask=None, trained=False, fake=False)
+            if True:
+                    path=os.path.join('logs', config.logname + ".log", "inference") # "./Data/XCAD"
+                    val_img_name = minibatch['img_name']  # 图片名称
+                    val_pred_sup_l = torch.where(val_pred_sup_l > 0.5, torch.ones_like(val_pred_sup_l),
+                             torch.zeros_like(val_pred_sup_l))
+
+                    val_pred_sup_l = val_pred_sup_l * 255
+
+                    # 将tensor转换为numpy数组，并调整形状以匹配PIL的输入要求（N, H, W）
+                    images_np = val_pred_sup_l.to('cpu').numpy().squeeze(axis=1).astype(np.uint8)
+                    # 保存每张图片到本地文件
+                    for i, image in enumerate(images_np):
+                        # 使用PIL创建图像对象，并保存为灰度图
+                        img_pil = Image.fromarray(image, mode='L')  # 'L'模式表示灰度图
+                        # img_pil.save("logs/"+val_img_name[i])  # 保存图片，文件名可以根据需要调整
+                        # img_pil.save(os.path.join('logs', config.logname + ".log", "inference", val_img_name[i]))
+                        img_pil.save(os.path.join(path, val_img_name[i]))
 
             max_l = torch.where(val_pred_sup_l >= 0.5, 1, 0)
             val_max_l = max_l.float()
