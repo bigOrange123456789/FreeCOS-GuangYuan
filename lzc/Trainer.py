@@ -119,8 +119,10 @@ class Trainer():
             "loss_pseudo",
             "loss_conn"]
         csv_head = ["epoch"]
-        for i in self.lossNameList:
-            csv_head.append(i)
+        # for i in self.lossNameList:
+        for i in range(len(self.lossNameList)):
+            id = self.lossNameList[i]
+            csv_head.append(id)
         create_csv(self.csv_loss_path, csv_head)
 
     def train(self,epoch,isFirstEpoch):

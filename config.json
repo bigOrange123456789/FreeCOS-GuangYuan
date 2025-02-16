@@ -34,6 +34,17 @@
     "inputType": "NewLIOT",
 
     "datapath": "../DataSet-images/XCAD_FreeCOS5",
+    "datapathTrain":{
+        "img_unsup":"img",
+        
+        "bg_3D":"bg_lzc",
+        "vessel_3D":"vessel3D_lzc",
+        "label_3D":"fake_gtvessel_width",
+
+        "bg":"img",
+        "vessel":"fake_grayvessel_width",
+        "label":"fake_gtvessel_width"
+    },
     "logname":"./FreeCOS32",
     "version": "2025.02.16--19:46"
 }

@@ -77,13 +77,24 @@ class DatasetXCAD_aug(data.Dataset):
         self.supervised = supervised #训练集包括有监督和无监督两部分、测试集为有监督
 
         self.datapath = datapath # ./Data/XCAD
+        datapathTrain = config.datapathTrain
         if self.supervised=='supervised':
             if self.split == 'train': # 有监督的训练
+                '''
                 self.img_path = os.path.join(datapath, 'train','fake_grayvessel_width')#./Data/XCAD/train/fake_grayvessel_width #合成血管
+                self.img_path_3D = os.path.join(datapath, 'train', 'vessel3D_lzc')  # ./Data/XCAD/train/vessel3D_lzc
                 self.background_path    = os.path.join(datapath,'train', 'img')           #./Data/XCAD/train/img                   #真实图片
                 self.background_path_3D = os.path.join(datapath, 'train', 'bg_lzc')  # ./Data/XCAD/train/img
                 self.ann_path    = os.path.join(datapath, 'train','fake_gtvessel_width')  #./Data/XCAD/train/fake_gtvessel_width   #合成标签
-                self.img_path_3D = os.path.join(datapath, 'train', 'vessel3D_lzc')  # ./Data/XCAD/train/vessel3D_lzc
+                '''
+                self.img_path = os.path.join(datapath, 'train',datapathTrain["vessel"])#./Data/XCAD/train/fake_grayvessel_width #合成血管
+                self.img_path_3D = os.path.join(datapath, 'train', datapathTrain["vessel_3D"])  # ./Data/XCAD/train/vessel3D_lzc
+                self.background_path    = os.path.join(datapath,'train', datapathTrain["bg"])           #./Data/XCAD/train/img                   #真实图片
+                self.background_path_3D = os.path.join(datapath, 'train', datapathTrain["bg_3D"])  # ./Data/XCAD/train/img
+                self.ann_path    = os.path.join(datapath, 'train',datapathTrain["label"])  #./Data/XCAD/train/fake_gtvessel_width   #合成标签
+                self.ann_path_3D = os.path.join(datapath, 'train',datapathTrain["label_3D"]) 
+                
+
                 self.img_metadata        = self.load_metadata_supervised()  #train_fakevessel.txt
                 self.background_metadata = self.load_metadata_background()  #train_backvessel.txt
             else: # 有监督的测试
@@ -91,7 +102,7 @@ class DatasetXCAD_aug(data.Dataset):
                 self.ann_path = os.path.join(datapath, 'test','gt')     #./Data/XCAD/test/gt  #人工标签
                 self.img_metadata = self.load_metadata_testsupervised() #test_img.txt
         else: # 无监督的训练
-            self.img_path = os.path.join(datapath, 'train','img') #./Data/XCAD/train/img
+            self.img_path = os.path.join(datapath, 'train',datapathTrain["img_unsup"]) #./Data/XCAD/train/img
             self.ann_path = os.path.join('logs', config.logname + ".log", "unsup_temp") #伪标签
             self.img_metadata = self.load_metadata_background()  #train_backvessel.txt
         self.norm_img = transforms.Compose([
@@ -434,7 +445,7 @@ class DatasetXCAD_aug(data.Dataset):
 
         img = self.read_img_3D(img_name) # 读取3D人工血管图
         # print("img",img.size)
-        anno_mask = self.read_mask(img_name) # 读取人工血管的标签图
+        anno_mask = self.read_mask_3D(img_name) # 读取人工血管的标签图
         background_img = self.read_background_3D(background_name) #背景图(真实造影图) # <PIL.Image.Image>
         # print('background_img',background_img.size)
         # exit(0)
@@ -604,6 +615,13 @@ class DatasetXCAD_aug(data.Dataset):
 
     def read_mask(self, img_name):
         mask = np.array(Image.open(os.path.join(self.ann_path, img_name)).convert('L'))
+        mask[mask == 0] = 0
+        mask[mask == 255] = 1
+        mask = torch.from_numpy(mask).float().unsqueeze(0)
+        return mask
+    
+    def read_mask_3D(self, img_name):
+        mask = np.array(Image.open(os.path.join(self.ann_path_3D, img_name)).convert('L'))
         mask[mask == 0] = 0
         mask[mask == 255] = 1
         mask = torch.from_numpy(mask).float().unsqueeze(0)
