@@ -103,7 +103,7 @@ class Trainer():
         self.lossNameList = [
             "loss_D_tar",
             "loss_D_src",
-            "loss_adv",
+            # "loss_adv",
             "loss_ce",
             "loss_dice",
 
@@ -246,7 +246,8 @@ class Trainer():
             pbar.set_description(print_str, refresh=False)  # 输出本batch的各项损失
 
         lossSave=[epoch]
-        for i in total_loss:
+        # for i in total_loss:
+        for i in self.lossNameList:
             lossSave.append( total_loss[i] / len(pbar) )
         write_csv(self.csv_loss_path, lossSave)
         
@@ -421,7 +422,7 @@ class Trainer():
         return {
             "loss_D_tar":loss_D_tar,
             "loss_D_src":loss_D_src,
-            "loss_adv":loss_adv,
+            # "loss_adv":loss_adv,
             "loss_ce":loss_ce,
             "loss_dice":loss_dice,
 
