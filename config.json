@@ -19,7 +19,7 @@
     "dePhase":1,
 
     "ASL": {
-        "gamma_neg":4, 
+        "gamma_neg":0, 
         "gamma_pos":0
     },
 
@@ -31,9 +31,9 @@
     "connectivityLoss":false,
     "connectivityLossType":"entropy",
 
-    "inputType": "LIOT",
+    "inputType": "NewLIOT",
 
     "datapath": "../DataSet-images/XCAD_FreeCOS5",
-    "logname":"./FreeCOS30",
-    "version": "2025.02.15--16:55"
+    "logname":"./FreeCOS31",
+    "version": "2025.02.16--15:16"
 }
