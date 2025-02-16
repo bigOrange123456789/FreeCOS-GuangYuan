@@ -1,6 +1,6 @@
 {
     "seed": 12345,
-    "batch_size": 15,
+    "batch_size": 16,
     "batch_size_val": 16,
     
     "seg":{

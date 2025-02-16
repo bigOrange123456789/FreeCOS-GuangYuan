@@ -4,6 +4,51 @@ import random
 from PIL import Image
 from scipy.ndimage import label, generate_binary_structure
 
+class BendFun():
+    def __init__(self):
+        self.c={}
+
+        def bend_error(k0): #f(0)=f(1)=0
+            return (2*k0-1)**2
+
+        def bend(k0,c): #f(0)=f(1)=0 ,最好取值范围是[-1,1]
+            return 0 #无任何弯曲
+        
+        self.c["exponent"]=random.randint(1, 3)            
+        
+        # self.c["x3"]=10*(random.random()-0.5)
+        num=random.randint(0, 2)
+        self.c["x_list"]=[]
+        for i in range(num):
+            self.c["x_list"].append(
+                1.5*(random.random()-0.5)
+            )
+        # self.c["x_list"]=[ 0.5 ]
+        def bend0(x,c): #f(0)=f(1)=0 ,最好取值范围是[-1,1]
+            # f = k0*(k0-1)*(k0-c["x3"])
+            y = 2 * x*(x-1)
+            for x0 in c["x_list"]:
+                y = 2 * y*(x-x0)
+            y = y ** c["exponent"]
+            return y    
+        
+        self.c["sin_cycle"]=random.randint(1, 3) #正弦周期的数量
+        def bend1(x,c):
+            y = np.sin(c["sin_cycle"]*np.pi*x)
+            y = y ** c["exponent"]
+            return y
+        
+        self.bendList=[bend0,bend1]
+        # self.bendList=[bend1]
+        self.bendListIndex=random.randint(0, len(self.bendList)-1)
+        
+        # bend=bendList[0]
+    def get(self,k):
+        f=self.bendList[self.bendListIndex]
+        return f(k,self.c)
+
+
+
 TestFlag = False #是否快速生成低质量图片
 #######################   开始创建一个numpy对象的图片   #########################
 class Img():
@@ -115,7 +160,7 @@ class Img():
             print("图片没有保存") 
             return False 
 
-    def draw(self,new_length,width,x,y,theta):
+    def draw(self,new_length0,width,x,y,theta):
         h, w = self.image.shape
         # print(new_length,width,x,y,theta)
         # 77.18 2 -152 -100 81.31 
@@ -123,9 +168,9 @@ class Img():
         theta=np.radians(theta) # 将角度制转换为弧度值
         x=h/2+x
         y=w/2+y
-        self.end_x = x + new_length * np.cos(theta)-h/2
-        self.end_y = y + new_length * np.sin(theta)-w/2
-        new_length=new_length+width/2. #width
+        self.end_x = x + new_length0 * np.cos(theta)-h/2
+        self.end_y = y + new_length0 * np.sin(theta)-w/2
+        new_length=new_length0+width/2. #width
         """
             在numpy数组上绘制一条线段。
             参数:
@@ -156,60 +201,49 @@ class Img():
         # 遍历图像中的每个像素
         h, w = self.image.shape
         # print("a:",center_x,center_y)
-        bendWeght=random.random() # 0-1
-        bendWeght=(bendWeght*2-1)*0.5*new_length # [ -0.1*l , 0.1*l ]
+        MaxBendWeight=0.3
+        bendWeght=(random.random()*2-1)*MaxBendWeight # 0-1 #[0-0.3]
+        bendWeght=bendWeght*0.5*new_length # [ -0.1*l , 0.1*l ]
+        # bendWeght=MaxBendWeight*0.5*new_length
+        # startLen=0.01#random.random()*0.01
+        bendf=BendFun() #用于实现线段弯曲
         for i in range(h):
             for j in range(w):
-                ####################开始插入实现弯曲的代码######################
-                be = 0 # 拉伸距离
-                if not bendWeght==0:
-                    def normal(x0,y0):
-                        return (x0**2+y0**2)**0.5
-                    def bend_error(k0): #f(0)=f(1)=0
-                        return (2*k0-1)**2
-                    def bend(k0): #f(0)=f(1)=0
-                        return k0*(k0-1)
-                    def bend(k0):
-                        return np.sin(2*np.pi*k0)
-                    # i00=int(i)
-                    # j00=int(j)
-                    # # print("c",i00,j00,h,w)
-                    # eps=1e-8
+
+                # 1.1判断像素点是否在线段的长度范围内
+                # 1.2计算像素点到线段起点的向量
+                pixel_to_start_x = j - x
+                pixel_to_start_y = i - y
+                # 1.3计算像素点到线段终点的向量
+                pixel_to_end_x = j - end_x
+                pixel_to_end_y = i - end_y
+                if (pixel_to_start_x * direction_x + pixel_to_start_y * direction_y >= 0 and
+                    pixel_to_end_x * direction_x + pixel_to_end_y * direction_y <= 0):
+
+                    ####################开始插入实现弯曲的代码######################
+                    be = 0 # 拉伸距离
+                    if True: #if not bendWeght==0:
+                        def normal(x0,y0):
+                            return (x0**2+y0**2)**0.5
+                        
+                        k = normal(pixel_to_start_x,pixel_to_start_y)/(new_length0) #在直线内的时候：k的数值应该是0-1
+                        # k = k+startLen
+
+                        if k>0 and k<1:
+                            be = bendf.get(k) * bendWeght
+                    center_x2 = center_x + be * normal_x
+                    center_y2 = center_y + be * normal_y
+                    ####################完成插入实现弯曲的代码######################
                     
-                    k = normal(j-x,i-y)/(new_length) #在直线内的时候：k的数值应该是0-1
-                    # print("b",i00,j00)
-                    # # print("a",i00,j00)
-                    
-                    # j=j + bend(k)*normal_x
-                    # i=i + bend(k)*normal_y
-                    if k>0 and k<1:
-                    ##################################
-                        be = bend(k) * bendWeght #be = bend(k) * 10.
-                    # print("a:",center_x,center_y)
-                center_x2 = center_x + be * normal_x
-                center_y2 = center_y + be * normal_y
-                # print("b:",center_x2,center_y2)
-                ####################完成插入实现弯曲的代码######################
-                # 计算像素点到线段中心点的向量
-                pixel_vector_x = j - center_x2
-                pixel_vector_y = i - center_y2
-                
-                # 计算像素点到线段的投影距离
-                projection_length = abs(pixel_vector_x * normal_x + pixel_vector_y * normal_y)
-                
-                # 判断像素点是否在线段的宽度范围内
-                if projection_length <= width / 2:
-                    # 计算像素点到线段起点的向量
-                    pixel_to_start_x = j - x
-                    pixel_to_start_y = i - y
-                    
-                    # 计算像素点到线段终点的向量
-                    pixel_to_end_x = j - end_x
-                    pixel_to_end_y = i - end_y
-                    
-                    # 判断像素点是否在线段的长度范围内
-                    if (pixel_to_start_x * direction_x + pixel_to_start_y * direction_y >= 0 and
-                        pixel_to_end_x * direction_x + pixel_to_end_y * direction_y <= 0):
+                    # 2.1 计算像素点到线段中心点的向量
+                    pixel_vector_x = j - center_x2
+                    pixel_vector_y = i - center_y2
+                    # 2.2 计算像素点到线段的投影距离
+                    projection_length = abs(pixel_vector_x * normal_x + pixel_vector_y * normal_y)
+                    # 2.3 判断像素点是否在线段的宽度范围内
+                    if projection_length <= width / 2:    
+
+                        
                         # print(i00,j00)
                         self.image[i, j] = 255 # self.image[i, j] = 255  # 设置像素值为255（白色）
                         
