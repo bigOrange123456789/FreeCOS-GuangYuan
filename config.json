@@ -16,7 +16,7 @@
     },
 
     "vessel3D": true,
-    "dePhase":1,
+    "dePhase":3,
 
     "ASL": {
         "gamma_neg":0, 
@@ -34,6 +34,6 @@
     "inputType": "NewLIOT",
 
     "datapath": "../DataSet-images/XCAD_FreeCOS5",
-    "logname":"./FreeCOS31",
-    "version": "2025.02.16--15:16"
+    "logname":"./FreeCOS32",
+    "version": "2025.02.16--19:46"
 }

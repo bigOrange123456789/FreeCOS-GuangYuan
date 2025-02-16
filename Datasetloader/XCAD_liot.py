@@ -442,7 +442,11 @@ class DatasetXCAD_aug(data.Dataset):
         # 1.将血管添加到背景中：对应元素相称
         # background_array = np.array(background_img)  #背景 <PIL.Image.Image> -> <numpy.ndarray>
         background_array = np.asarray(background_img, np.float32)  # 背景 <PIL.Image.Image> -> <numpy.ndarray>
-        def dePhase1(img): #用于去除图片中的傅里叶相位
+        def dePhase1(img,MaintainRange): #用于去除图片中的傅里叶相位
+            if MaintainRange:
+                min1 = np.min(img) # 计算像素的最小值
+                ran1 = np.max(img) - min1
+
             img = np.expand_dims(img, axis=2) # (512, 512) -> (512, 512, 1)
             img = img.transpose((2, 0, 1)) # 通过转置操作，改变维度顺序
             
@@ -458,8 +462,14 @@ class DatasetXCAD_aug(data.Dataset):
             # 逆傅里叶变换 # get the mutated image
             src_in_trg = np.fft.ifft2( fft_src_, axes=(-2, -1) )
             src_in_trg = np.real(src_in_trg) # 从复数数组中提取实部。
-
-            img_FDA = np.clip(src_in_trg, 0, 255.)#应该是限制像素的最小值为0、最大值为255
+            
+            if MaintainRange:
+                min2 = np.min(img_FDA) # 计算像素的最小值
+                ran2 = np.max(img_FDA) - min2
+                img_FDA = (img_FDA-min2)/ran2
+                img_FDA = img_FDA * ran1 + min1
+            else:
+                img_FDA = np.clip(src_in_trg, 0, 255.)#限制像素的最小值为0、最大值为255
             img_FDA = np.squeeze(img_FDA,axis = 0) # (1, 512, 512) -> (512, 512)
             return img_FDA
         
@@ -476,9 +486,14 @@ class DatasetXCAD_aug(data.Dataset):
             return img_FDA
         
         if config.dePhase==1:
-            background_array=dePhase1(background_array)
+            background_array=dePhase1(background_array,False)
         elif config.dePhase==2:
             background_array=dePhase2(background_array)
+        elif config.dePhase==3:
+            background_array=dePhase1(background_array,True)
+        elif not config.dePhase==0:
+            print("The dePhase parameter in the configuration file is invalid!(配置文件中的dePhase参数不合法!)")
+            exit(0)
         
         im_src = np.asarray(img, np.float32)  #血管 <PIL.Image.Image> -> <numpy.ndarray> #转换为NumPy，并且指定类型
         background_array=background_array/255.
