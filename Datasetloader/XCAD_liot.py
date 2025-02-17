@@ -507,6 +507,106 @@ class DatasetXCAD_aug(data.Dataset):
             img_FDA_guassian = img_FDA_guassian + noise_map
             return np.clip(img_FDA_guassian, 0., 255.)
 
+        def deVessel(img,noise):
+            img = np.expand_dims(img, axis=2) # (512, 512) -> (512, 512, 1)
+            noise = np.expand_dims(noise, axis=2) # (512, 512) -> (512, 512, 1)
+            img = img.transpose((2, 0, 1)) # 通过转置操作，改变维度顺序
+            noise = noise.transpose((2, 0, 1))
+
+            # 傅里叶变换 # get fft of both source and target
+            fft_trg_np1 = np.fft.fft2( img, axes=(-2, -1) )
+            fft_trg_np2 = np.fft.fft2( noise, axes=(-2, -1) )
+
+            def low_freq_mutate_np2(amp_src1,amp_src2): #L=0~255
+                # amp_src, amp_trg: (1, 512, 512) <class 'numpy.ndarray'>
+                a_src1 = np.fft.fftshift( amp_src1, axes=(-2, -1) ) # np.zeros_like(amp_trg)
+                a_src2 = np.fft.fftshift( amp_src2, axes=(-2, -1) ) 
+                # 频域中心化: 将频谱的零频率分量（DC分量）移动到频谱的中心位置。
+                _, h, w = a_src1.shape # h=512 w=512       
+                for i in range(h):
+                        for j in range(w):
+                            k = ( (i-h/2)**2 + (j-w/2)**2 )**0.5
+                            # if k>10 and k<90 and not (k>50 and k<55): #(10,100) 
+                            if k>10 and k<100 : #(10,90) 
+                                # a_src1[0,i,j]=0
+                                a_src1[0,i,j]=a_src2[0,i,j]
+
+                return np.fft.ifftshift( a_src1, axes=(-2, -1) )
+        
+            # extract amplitude and phase of both ffts
+            amp_trg1, pha_trg1 = np.abs(fft_trg_np1), np.angle(fft_trg_np1)
+            amp_trg2, pha_trg2 = np.abs(fft_trg_np2), np.angle(fft_trg_np2)
+
+            # mutate the amplitude part of source with target
+            amp_src_ = low_freq_mutate_np2( amp_trg1 ,amp_trg2)
+            pha_src_ = low_freq_mutate_np2( pha_trg1 ,pha_trg2)
+
+            # mutated fft of source
+            fft_src_ = amp_src_ * np.exp( 1j * pha_src_ )
+
+            # 逆傅里叶变换 # get the mutated image
+            src_in_trg = np.fft.ifft2( fft_src_, axes=(-2, -1) )
+            src_in_trg = np.real(src_in_trg) # 从复数数组中提取实部
+            # print("src_in_trg",src_in_trg.shape,src_in_trg)
+
+            img_FDA = np.clip(src_in_trg, 0, 255.)#应该是限制像素的最小值为0、最大值为255
+            img_FDA = np.squeeze(img_FDA,axis = 0) # (1, 512, 512) -> (512, 512)
+
+            return img_FDA 
+        def deVessel2(img):
+            ##########################    1.计算noise   ##########################
+            img = np.expand_dims(img, axis=2) # (512, 512) -> (512, 512, 1)
+            img = img.transpose((2, 0, 1)) # 通过转置操作，改变维度顺序
+                
+            fft_trg_np = np.fft.fft2( img, axes=(-2, -1) )# 傅里叶变换
+
+            # extract amplitude and phase of both ffts
+            amp, pha = np.abs(fft_trg_np), np.angle(fft_trg_np)
+
+            # mutated fft of source
+            fft_0 = amp * np.exp( 1j * np.zeros_like(pha) )
+
+            # 逆傅里叶变换 # get the mutated image
+            src_0 = np.fft.ifft2( fft_0, axes=(-2, -1) )
+            src_0 = np.real(src_0) # 从复数数组中提取实部。
+                
+            noise = np.clip(src_0, 0, 255.)#限制像素的最小值为0、最大值为255
+            ##########################    2.计算noise   ##########################
+            # 傅里叶变换 # get fft of both source and target
+            fft_trg_np2 = np.fft.fft2( noise, axes=(-2, -1) )
+
+            def low_freq_mutate_np2(amp_src1,amp_src2): #L=0~255
+                a_src1 = np.fft.fftshift( amp_src1, axes=(-2, -1) ) # np.zeros_like(amp_trg)
+                a_src2 = np.fft.fftshift( amp_src2, axes=(-2, -1) ) 
+                # 频域中心化: 将频谱的零频率分量（DC分量）移动到频谱的中心位置。
+                _, h, w = a_src1.shape # h=512 w=512       
+                for i in range(h):
+                        for j in range(w):
+                            k = ( (i-h/2)**2 + (j-w/2)**2 )**0.5
+                            if k>10 and k<100 : 
+                                a_src1[0,i,j]=a_src2[0,i,j]
+                return np.fft.ifftshift( a_src1, axes=(-2, -1) )
+        
+            # extract amplitude and phase of both ffts
+            amp_trg2, pha_trg2 = np.abs(fft_trg_np2), np.angle(fft_trg_np2)
+
+            # mutate the amplitude part of source with target
+            amp_src_ = low_freq_mutate_np2( amp ,amp_trg2)
+            pha_src_ = low_freq_mutate_np2( pha ,pha_trg2)
+
+            # mutated fft of source
+            fft_src_ = amp_src_ * np.exp( 1j * pha_src_ )
+
+            # 逆傅里叶变换 # get the mutated image
+            src_in_trg = np.fft.ifft2( fft_src_, axes=(-2, -1) )
+            src_in_trg = np.real(src_in_trg) # 从复数数组中提取实部
+            # print("src_in_trg",src_in_trg.shape,src_in_trg)
+
+            img_FDA = np.clip(src_in_trg, 0, 255.)#应该是限制像素的最小值为0、最大值为255
+            img_FDA = np.squeeze(img_FDA,axis = 0) # (1, 512, 512) -> (512, 512)
+
+            return img_FDA 
+         
         if config.dePhase==1:
             background_array=dePhase1(background_array,False)
         elif config.dePhase==2:
@@ -515,6 +615,10 @@ class DatasetXCAD_aug(data.Dataset):
             background_array=dePhase1(background_array,True)
             # background_array=dePhase1(background_array,False)
             # background_array=addNoise(background_array)
+        elif config.dePhase==4: 
+            background_array = deVessel2(img)
+            # noiseImg = dePhase1(background_array,False)
+            # background_array = deVessel(img,noiseImg)
         elif not config.dePhase==0:
             print("The dePhase parameter in the configuration file is invalid!(配置文件中的dePhase参数不合法!)")
             exit(0)

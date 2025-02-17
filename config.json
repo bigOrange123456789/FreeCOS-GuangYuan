@@ -15,14 +15,14 @@
         "damping-old":["reduce","默认衰减"]
     },
     "contrast":{
-        "weight": 0,
+        "weight": 0.04,
         "weight-old": 0.04,
         "damping":"constant",
         "damping-old":["constant","默认恒定"]
     },
 
     "vessel3D": true,
-    "dePhase":1,
+    "dePhase":4,
 
     "ASL": {
         "gamma_neg":0, 
@@ -51,6 +51,6 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "logname":"./FreeCOS32",
-    "version": "2025.02.16--19:46"
+    "logname":"./FreeCOS33",
+    "version": "2025.02.17--23:57"
 }
