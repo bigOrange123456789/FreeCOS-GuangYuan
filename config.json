@@ -22,7 +22,7 @@
     },
 
     "vessel3D": true,
-    "dePhase":4,
+    "dePhase":0,
 
     "ASL": {
         "gamma_neg":0, 
@@ -41,6 +41,17 @@
 
     "datapath": "../DataSet-images/XCAD_FreeCOS5",
     "datapathTrain":{
+        "img_unsup":"img",
+        
+        "bg_3D":"bg2",
+        "vessel_3D":"vessel3D_lzc",
+        "label_3D":"fake_gtvessel_width",
+
+        "bg":"img",
+        "vessel":"fake_grayvessel_width",
+        "label":"fake_gtvessel_width"
+    },
+    "datapathTrain-old":{
         "img_unsup":"img",
         
         "bg_3D":"bg_lzc",

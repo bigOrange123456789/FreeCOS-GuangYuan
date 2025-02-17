@@ -619,7 +619,7 @@ class DatasetXCAD_aug(data.Dataset):
             background_array = deVessel2(img)
             # noiseImg = dePhase1(background_array,False)
             # background_array = deVessel(img,noiseImg)
-        elif not config.dePhase==0:
+        elif not config.dePhase==0: #dePhase=0表示程序执行前已经处理好了背景图
             print("The dePhase parameter in the configuration file is invalid!(配置文件中的dePhase参数不合法!)")
             exit(0)
         
