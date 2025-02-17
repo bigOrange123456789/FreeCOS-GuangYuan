@@ -499,12 +499,22 @@ class DatasetXCAD_aug(data.Dataset):
 
             return img_FDA
         
+        def addNoise(img0):
+            # 2.高斯模糊
+            img_FDA_guassian = cv2.GaussianBlur(img0, (13, 13), 0)
+            # 3.添加点噪声
+            noise_map = np.random.uniform(-5,5,img_FDA_guassian.shape)
+            img_FDA_guassian = img_FDA_guassian + noise_map
+            return np.clip(img_FDA_guassian, 0., 255.)
+
         if config.dePhase==1:
             background_array=dePhase1(background_array,False)
         elif config.dePhase==2:
             background_array=dePhase2(background_array)
-        elif config.dePhase==3:
+        elif config.dePhase==3: #经过分析、我不认为该方式会提升效果
             background_array=dePhase1(background_array,True)
+            # background_array=dePhase1(background_array,False)
+            # background_array=addNoise(background_array)
         elif not config.dePhase==0:
             print("The dePhase parameter in the configuration file is invalid!(配置文件中的dePhase参数不合法!)")
             exit(0)

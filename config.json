@@ -14,9 +14,15 @@
         "damping":"constant",
         "damping-old":["reduce","默认衰减"]
     },
+    "contrast":{
+        "weight": 0,
+        "weight-old": 0.04,
+        "damping":"constant",
+        "damping-old":["constant","默认恒定"]
+    },
 
     "vessel3D": true,
-    "dePhase":3,
+    "dePhase":1,
 
     "ASL": {
         "gamma_neg":0, 

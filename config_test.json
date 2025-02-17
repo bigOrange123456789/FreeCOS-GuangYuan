@@ -14,6 +14,12 @@
         "damping":"reduce",
         "damping-old":["increase","reduce","constant","默认衰减"]
     },
+    "contrast":{
+        "weight": 0,
+        "weight-old": 0.04,
+        "damping":"constant",
+        "damping-old":["constant","默认恒定"]
+    },
 
     "vessel3D": true,
     "dePhase":1,

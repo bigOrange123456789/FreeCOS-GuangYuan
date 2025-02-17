@@ -251,7 +251,7 @@ class Trainer():
         # for i in total_loss:
         for i in range(len(self.lossNameList)):
             id = self.lossNameList[i]
-            lossSave.append( total_loss[id] / len(pbar) )
+            lossSave.append( total_loss[id].item() / len(pbar) )
         write_csv(self.csv_loss_path, lossSave)
         
 
@@ -266,6 +266,12 @@ class Trainer():
         return train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss, train_loss_dice, train_loss_ce, train_loss_contrast, average_posregion, average_negregion
 
     def __forward(self,minibatch,unsup_minibatch,damping,isFirstEpoch):
+        def getZero():
+            x0=torch.tensor(0.0) # torch.zeros(0, dtype=torch.float32) # 0
+            if torch.cuda.is_available():
+                device = torch.device("cuda")  # 设定设备为GPU
+                x0 = x0.to(device)
+            return x0
         Segment_model = self.Segment_model
         predict_Discriminator_model = self.predict_Discriminator_model
         criterion = self.criterion
@@ -319,32 +325,32 @@ class Trainer():
                                    torch.FloatTensor(D_seg_target_out.data.size()).fill_(source_label).cuda())
 
         # 3.对比学习损失
-        quary_feature, pos_feature, neg_feature, flag = check_feature(sample_set_sup, sample_set_unsup)
-        '''
-        in:
-            sample_sets_sup:  有监督合成图片用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
-            sample_sets_unsup:无监督真实图片用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
-        out:
-            quary_feature: 合成图像 全部易正样本的特征 [<=2000, 64]=[2000, 64]
-            pos_feature:   真实图像 全部易正样本的特征 [<=2000, 64]=[579,  64]
-            neg_feature:   合成和真实的图像 部分易负样本的特征 [<=500, 64]=[462, 64]
-        '''
-        if flag:
-            if hasattr(Segment_model, 'learnable_scalar'):
-                loss_contrast = criterion_contrast(quary_feature, pos_feature, neg_feature,
-                                                   Segment_model.learnable_scalar)
+        if config.contrast["weight"]>0:
+            quary_feature, pos_feature, neg_feature, flag = check_feature(sample_set_sup, sample_set_unsup)
+            '''
+            in:
+                sample_sets_sup:  有监督合成图片用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
+                sample_sets_unsup:无监督真实图片用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
+            out:
+                quary_feature: 合成图像 全部易正样本的特征 [<=2000, 64]=[2000, 64]
+                pos_feature:   真实图像 全部易正样本的特征 [<=2000, 64]=[579,  64]
+                neg_feature:   合成和真实的图像 部分易负样本的特征 [<=500, 64]=[462, 64]
+            '''
+            if flag:
+                if hasattr(Segment_model, 'learnable_scalar'):
+                    loss_contrast = criterion_contrast(quary_feature, pos_feature, neg_feature,
+                                                    Segment_model.learnable_scalar)
+                else:
+                    loss_contrast = criterion_contrast(quary_feature, pos_feature, neg_feature)
+                '''
+                    quary_feature: 合成图像 全部易正样本的特征 [<=2000, 64]=[2000, 64]       ->len=579 (这里的正样本成对使用)
+                    pos_feature:   真实图像 全部易正样本的特征 [<=2000, 64]=[579,  64]       ->len=579 
+                    neg_feature:   合成和真实的图像 部分易负样本的特征 [<=500, 64]=[462, 64]   ->len=462
+                '''
             else:
-                loss_contrast = criterion_contrast(quary_feature, pos_feature, neg_feature)
-            '''
-                quary_feature: 合成图像 全部易正样本的特征 [<=2000, 64]=[2000, 64]       ->len=579 (这里的正样本成对使用)
-                pos_feature:   真实图像 全部易正样本的特征 [<=2000, 64]=[579,  64]       ->len=579 
-                neg_feature:   合成和真实的图像 部分易负样本的特征 [<=500, 64]=[462, 64]   ->len=462
-            '''
+                loss_contrast = getZero()
         else:
-            loss_contrast = torch.tensor(0.0) # torch.zeros(0, dtype=torch.float32) # 0
-            if torch.cuda.is_available():
-                device = torch.device("cuda")  # 设定设备为GPU
-                loss_contrast = loss_contrast.to(device)
+            loss_contrast = getZero()
 
         # 4.伪监督损失
         if config.pseudo_label and isFirstEpoch == False:
@@ -362,10 +368,7 @@ class Trainer():
                     gamma_neg=config.gamma_neg)
             loss_pseudo = criterion_bce2(pred_target, gts_pseudo)
         else:
-            loss_pseudo = torch.tensor(0.0) # torch.zeros(0, dtype=torch.float32) # 0
-            if torch.cuda.is_available():
-                device = torch.device("cuda")  # 设定设备为GPU
-                loss_pseudo = loss_pseudo.to(device)
+            loss_pseudo = getZero()
 
         # 5.连通性损失
         if config.connectivityLoss:  # 使用连通损失
@@ -377,10 +380,7 @@ class Trainer():
             #     loss_conn = loss_conn + loss_conn3
         else:
             # loss_conn = torch.zeros(0, dtype=torch.float32) # 0
-            loss_conn = torch.tensor(0.0)  # torch.zeros(0, dtype=torch.float32) # 0
-            if torch.cuda.is_available():
-                device = torch.device("cuda")  # 设定设备为GPU
-                loss_conn = loss_conn.to(device)
+            loss_conn = getZero()
 
         # 【1.合成监督、2.对抗、3.对比、4.伪监督、5.连通损失】
         def useW_seg(l_d,l_c,c):
@@ -409,7 +409,7 @@ class Trainer():
         loss_adv_w = useW(loss_adv_target, config.adv) 
         # loss_adv_w = loss_adv_target * damping * 0.25 
         # damping的取值范围是: 1到0
-        loss_contrast_w = loss_contrast * 0.04  # (当前batch的)加权后的对比损失 # weight_contrast = 0.04  # 对比损失的权重
+        loss_contrast_w = useW(loss_contrast, config.contrast) #loss_contrast_w = loss_contrast * 0.04  # (当前batch的)加权后的对比损失 # weight_contrast = 0.04  # 对比损失的权重
         loss_pseudo_w = loss_pseudo * ( 1 - damping ) * 0.01
         loss_conn_w = loss_conn * 0.1
 
