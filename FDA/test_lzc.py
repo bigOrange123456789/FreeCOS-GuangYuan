@@ -520,7 +520,7 @@ class Test_lzc4():
 
     def low_freq_mutate_np(self, amp_src, amp_trg, L=128 ): #L=0~255
         # amp_src, amp_trg: (1, 512, 512) <class 'numpy.ndarray'>
-        a_src = np.zeros_like(amp_trg)
+        a_src = np.fft.fftshift( amp_src, axes=(-2, -1) ) # np.zeros_like(amp_trg)
         a_trg = np.fft.fftshift( amp_trg, axes=(-2, -1) )
         # 频域中心化: 将频谱的零频率分量（DC分量）移动到频谱的中心位置。
 
@@ -559,8 +559,12 @@ class Test_lzc4():
 
 
         # mutate the amplitude part of source with target
-        amp_src_ = self.low_freq_mutate_np( np.zeros_like(amp_trg), amp_trg, L=L )
-        pha_src_ = self.low_freq_mutate_np( np.zeros_like(pha_trg), pha_trg, L=L )
+        if True:
+            amp_src_ = self.low_freq_mutate_np( np.zeros_like(amp_trg), amp_trg, L=L )
+            pha_src_ = self.low_freq_mutate_np( np.zeros_like(pha_trg), pha_trg, L=L )
+        else:
+            amp_src_ = self.low_freq_mutate_np( amp_trg, np.zeros_like(amp_trg), L=L )
+            pha_src_ = self.low_freq_mutate_np( pha_trg, np.zeros_like(pha_trg), L=L )
 
         # mutated fft of source
         fft_src_ = amp_src_ * np.exp( 1j * pha_src_ )
@@ -572,15 +576,26 @@ class Test_lzc4():
     
     def deVessel(self,im,L,name):
         src_in_trg = self.FDA_source_to_target_np( im, L=L) #源图片是人工血管、目标图片是背景图
-        img_FDA = np.clip(src_in_trg, 0, 255.)#应该是限制像素的最小值为0、最大值为255
-        img_FDA = np.squeeze(img_FDA,axis = 0) # (1, 512, 512) -> (512, 512)
-            
+        img_FDA = np.squeeze(src_in_trg,axis = 0) # (1, 512, 512) -> (512, 512)
+        if False:
+            img_FDA = np.clip(img_FDA, 0, 255.)#应该是限制像素的最小值为0、最大值为255
+        else:
+            # img_FDA = np.squeeze(img_FDA,axis = 0) # (1, 512, 512) -> (512, 512)
+            max0=np.max(img_FDA)
+            min0=np.min(img_FDA)
+            print(min0,max0)
+            ran0=max0-min0
+            img_FDA=(img_FDA-min0)/ran0
+            img_FDA=255.*img_FDA
+
+        
+
         img_FDA_Image=Image.fromarray((img_FDA).astype('uint8')).convert('L')
         img_FDA_Image.save(name, format='PNG')
     def load_frame_fakevessel_gaussian04(self,img_name,background_name):
-        background_img = self.read_background(background_name) #背景图(真实造影图) # <PIL.Image.Image>
-        background_array = np.array(background_img) # <numpy.ndarray> #将图片由'PIL.Image.Image'格式转化为numpy格式
-        im_trg = np.asarray(background_array, np.float32) #转化前后类型都是<numpy.ndarray> (512, 512)
+        background_img = self.read_background(background_name) # 背景图(真实造影图) # <PIL.Image.Image>
+        background_array = np.array(background_img) # <numpy.ndarray> # 将图片由'PIL.Image.Image'格式转化为numpy格式
+        im_trg = np.asarray(background_array, np.float32) # 转化前后类型都是<numpy.ndarray> (512, 512)
         im_trg = np.expand_dims(im_trg, axis=2) # (512, 512) -> (512, 512, 1)
         im_trg = im_trg.transpose((2, 0, 1)) # 通过转置操作，改变维度顺序
 
@@ -592,6 +607,188 @@ class Test_lzc4():
             print("test",i)
             self.deVessel(im_trg,i,'./temp/t/'+str(i)+'.png')   
             # exit(0)
+
+class Test_lzc4_1():
+
+    def __init__(self):
+        root="../../DataSet-images/XCAD_FreeCOS/train/"
+        self.img_path        = os.path.join(root, "fake_grayvessel_width")
+        self.background_path = os.path.join(root, "img")
+        self.ann_path        = os.path.join(root, "fake_gtvessel_width")
+        
+        self.load_frame_fakevessel_gaussian04("0.png","000_PPA_44_PSA_00_8.png")
+
+    def read_background(self,img_name):
+        return Image.open(os.path.join(self.background_path, img_name)).convert('L')
+
+    def low_freq_mutate_np2(self, amp_src, L=128 ): #L=0~255
+        # amp_src, amp_trg: (1, 512, 512) <class 'numpy.ndarray'>
+        a_src = np.fft.fftshift( amp_src, axes=(-2, -1) ) # np.zeros_like(amp_trg)
+        # 频域中心化: 将频谱的零频率分量（DC分量）移动到频谱的中心位置。
+
+        _, h, w = a_src.shape # h=512 w=512
+        # print(a_src.shape)
+        for i in range(h):
+            for j in range(w):
+                k = ( (i-h/2)**2 + (j-w/2)**2 )**0.5
+                if abs(k-L)<5:
+                    a_src[0,i,j]=0
+
+        a_src = np.fft.ifftshift( a_src, axes=(-2, -1) )
+        return a_src
+
+    def FDA_source_to_target_np(self,  trg_img, L=128 ):
+
+        # 傅里叶变换 # get fft of both source and target
+        fft_trg_np = np.fft.fft2( trg_img, axes=(-2, -1) )
+
+        # extract amplitude and phase of both ffts
+        amp_trg, pha_trg = np.abs(fft_trg_np), np.angle(fft_trg_np)
+
+
+        # mutate the amplitude part of source with target
+        amp_src_ = self.low_freq_mutate_np2( amp_trg, L=L )
+        pha_src_ = self.low_freq_mutate_np2( pha_trg, L=L )
+
+        # mutated fft of source
+        fft_src_ = amp_src_ * np.exp( 1j * pha_src_ )
+
+        # 逆傅里叶变换 # get the mutated image
+        src_in_trg = np.fft.ifft2( fft_src_, axes=(-2, -1) )
+        src_in_trg = np.real(src_in_trg) # 从复数数组中提取实部。
+        return src_in_trg
+    
+    def deVessel(self,im,L,name):
+        src_in_trg = self.FDA_source_to_target_np( im, L=L) #源图片是人工血管、目标图片是背景图
+        img_FDA = np.squeeze(src_in_trg,axis = 0) # (1, 512, 512) -> (512, 512)
+        if False:
+            img_FDA = np.clip(img_FDA, 0, 255.)#应该是限制像素的最小值为0、最大值为255
+        else:
+            # img_FDA = np.squeeze(img_FDA,axis = 0) # (1, 512, 512) -> (512, 512)
+            max0=np.max(img_FDA)
+            min0=np.min(img_FDA)
+            print(min0,max0)
+            ran0=max0-min0
+            eps=1e-10
+            img_FDA=(img_FDA-min0)/(ran0+eps)
+            img_FDA=255.*img_FDA
+
+        
+
+        img_FDA_Image=Image.fromarray((img_FDA).astype('uint8')).convert('L')
+        img_FDA_Image.save(name, format='PNG')
+    def load_frame_fakevessel_gaussian04(self,img_name,background_name):
+        background_img = self.read_background(background_name) # 背景图(真实造影图) # <PIL.Image.Image>
+        background_array = np.array(background_img) # <numpy.ndarray> # 将图片由'PIL.Image.Image'格式转化为numpy格式
+        im_trg = np.asarray(background_array, np.float32) # 转化前后类型都是<numpy.ndarray> (512, 512)
+        im_trg = np.expand_dims(im_trg, axis=2) # (512, 512) -> (512, 512, 1)
+        im_trg = im_trg.transpose((2, 0, 1)) # 通过转置操作，改变维度顺序
+
+        # self.deVessel(im_trg,0.99,'./temp/t/'+str(0.99)+'.png')
+        # self.deVessel(im_trg,1,'./temp/t/'+str(1)+'.png')
+        # return
+        N=257
+        for i in range(N):
+            print("test",i)
+            self.deVessel(im_trg,i,'./temp/t/'+str(i)+'.png')   
+            # exit(0)
+
+class Test_lzc4_2():
+
+    def __init__(self):
+        root="../../DataSet-images/XCAD_FreeCOS/train/"
+        self.img_path        = os.path.join(root, "fake_grayvessel_width")
+        self.background_path = os.path.join(root, "img")
+        self.ann_path        = os.path.join(root, "fake_gtvessel_width")
+        
+        background_name = "000_PPA_44_PSA_00_8.png"
+        self.background_img = Image.open(os.path.join(self.background_path, background_name)).convert('L')
+        
+        # self.flag="-"
+        # for i in range(16):
+        #     self.step=(i+1)*5
+        #     # print("步长为",self.step)
+        #     self.analysis()
+
+        self.flag="+"
+        for i in range(50):
+            self.step=(i+1)
+            # print("步长为",self.step)
+            self.analysis()
+    
+    def analysis(self):
+        folder_path = './temp/'+self.flag+str(self.step)
+        # 检查路径是否存在
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)  # 创建文件夹
+            print(f"文件夹 '{folder_path}' 已创建。")
+
+        background_array = np.array(self.background_img) # <numpy.ndarray> # 将图片由'PIL.Image.Image'格式转化为numpy格式
+        im_trg = np.asarray(background_array, np.float32) # 转化前后类型都是<numpy.ndarray> (512, 512)
+        im_trg = np.expand_dims(im_trg, axis=2) # (512, 512) -> (512, 512, 1)
+        im_trg = im_trg.transpose((2, 0, 1)) # 通过转置操作，改变维度顺序
+
+        N=50#257
+        for i in range(N):
+            print(self.flag+str(self.step),i)
+            self.deVessel(im_trg,i,folder_path+'/'+str(i)+'.png')   
+
+    def low_freq_mutate_np2(self, amp_src, L=128 ): #L=0~255
+        # amp_src, amp_trg: (1, 512, 512) <class 'numpy.ndarray'>
+        a_src = np.fft.fftshift( amp_src, axes=(-2, -1) ) # np.zeros_like(amp_trg)
+        # 频域中心化: 将频谱的零频率分量（DC分量）移动到频谱的中心位置。
+
+        _, h, w = a_src.shape # h=512 w=512
+        # print(a_src.shape)
+        for i in range(h):
+            for j in range(w):
+                k = ( (i-h/2)**2 + (j-w/2)**2 )**0.5
+                if self.flag=="-":
+                    if abs(k-L)<self.step:
+                        a_src[0,i,j]=0
+                if self.flag=="+":
+                    if abs(k-L)>self.step:
+                        a_src[0,i,j]=0
+
+        a_src = np.fft.ifftshift( a_src, axes=(-2, -1) )
+        return a_src
+
+    def FDA_source_to_target_np(self,  trg_img, L=128 ):
+
+        # 傅里叶变换 # get fft of both source and target
+        fft_trg_np = np.fft.fft2( trg_img, axes=(-2, -1) )
+
+        # extract amplitude and phase of both ffts
+        amp_trg, pha_trg = np.abs(fft_trg_np), np.angle(fft_trg_np)
+
+
+        # mutate the amplitude part of source with target
+        amp_src_ = self.low_freq_mutate_np2( amp_trg, L=L )
+        pha_src_ = self.low_freq_mutate_np2( pha_trg, L=L )
+
+        # mutated fft of source
+        fft_src_ = amp_src_ * np.exp( 1j * pha_src_ )
+
+        # 逆傅里叶变换 # get the mutated image
+        src_in_trg = np.fft.ifft2( fft_src_, axes=(-2, -1) )
+        src_in_trg = np.real(src_in_trg) # 从复数数组中提取实部。
+        return src_in_trg
+    
+    def deVessel(self,im,L,name):
+        src_in_trg = self.FDA_source_to_target_np( im, L=L) #源图片是人工血管、目标图片是背景图
+        img_FDA = np.squeeze(src_in_trg,axis = 0) # (1, 512, 512) -> (512, 512)
+        def normal(img):
+            max0=np.max(img)
+            min0=np.min(img)
+            ran0=max0-min0
+            eps=1e-10
+            img=(img-min0)/(ran0+eps)
+            return 255.*img
+        img_FDA = normal(img_FDA)
+
+        img_FDA_Image=Image.fromarray((img_FDA).astype('uint8')).convert('L')
+        img_FDA_Image.save(name, format='PNG')
+    
 
 class Test_lzc5():
 
@@ -699,7 +896,8 @@ class Test_lzc5():
             
         img_FDA_Image=Image.fromarray((img_FDA).astype('uint8')).convert('L')
         img_FDA_Image.save("test.png", format='PNG')
-    
+
+# 去除全部相位    
 class Test_lzc6():
     def save(self,img,path):
         img_FDA_Image=Image.fromarray((img).astype('uint8')).convert('L')
@@ -798,5 +996,5 @@ class Test_lzc6():
         
  
 
-Test_lzc6()
+Test_lzc4_2()
 
