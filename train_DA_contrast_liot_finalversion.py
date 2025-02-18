@@ -91,8 +91,11 @@ def main():
     else:
         print("配置文件中的inputType参数不合法!")
         exit(0)
-    Segment_model = Single_contrast_UNet(n_channels, config.num_classes)
-    # 我猜BN不放在Segment_model中的原因是：训练和评估这两种模式在使用的时候会有差异
+    Segment_model = Single_contrast_UNet(n_channels, config.num_classes) # 我猜BN不放在Segment_model中的原因是：训练和评估这两种模式在使用的时候会有差异
+    if config.useEMA:
+        Segment_model_EMA = Single_contrast_UNet(n_channels, config.num_classes)
+    else:
+        Segment_model_EMA = None
 
     init_weight(Segment_model.business_layer, nn.init.kaiming_normal_,
                 # nn.init.kaiming_normal_: <function kaiming_normal_>
@@ -142,6 +145,8 @@ def main():
     if torch.cuda.device_count() > 1:
         Segment_model = Segment_model.cuda()
         Segment_model = nn.DataParallel(Segment_model)
+        Segment_model_EMA = Segment_model_EMA.cuda()
+        Segment_model_EMA = nn.DataParallel(Segment_model_EMA)
         average_posregion.cuda()
         average_negregion.cuda()
         predict_Discriminator_model = predict_Discriminator_model.cuda()
@@ -150,16 +155,18 @@ def main():
     elif torch.cuda.is_available():
         print("cuda_is available")
         Segment_model = Segment_model.cuda() # 分割模型
+        Segment_model_EMA = Segment_model_EMA.cuda()
         average_posregion.cuda()
         average_negregion.cuda()
         predict_Discriminator_model = predict_Discriminator_model.cuda() # 预测判别模型
     else:
         Segment_model = Segment_model
+        Segment_model_EMA = Segment_model_EMA
         predict_Discriminator_model = predict_Discriminator_model
 
     best_val_f1 = 0
     Logger.initialize(config, training=True)
-    trainer = Trainer(Segment_model, predict_Discriminator_model, dataloader_supervised, dataloader_unsupervised,
+    trainer = Trainer(Segment_model,Segment_model_EMA, predict_Discriminator_model, dataloader_supervised, dataloader_unsupervised,
                 optimizer_l, optimizer_D, lr_policy, lrD_policy, criterion, total_iteration, average_posregion,
                 average_negregion)
     # inference(Segment_model, dataloader_val)

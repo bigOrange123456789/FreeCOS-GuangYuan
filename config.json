@@ -39,6 +39,7 @@
     "connectivityLossType":"entropy",
 
     "inputType": "NewLIOT",
+    "useEMA":true,
 
     "datapath": "../DataSet-images/XCAD_FreeCOS5",
     "datapathTrain":{

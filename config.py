@@ -95,6 +95,8 @@ C.connectivityLoss = C_["connectivityLoss"]
 C.connectivityLossType = C_["connectivityLossType"]
 #6.设置神经网络模型输入的图片格式
 C.inputType = C_["inputType"]
+#7.使用TeacherStudent架构
+C.useEMA = C_["useEMA"]
 ######################################################################################################
 C.adv = C_["adv"]
 C.seg = C_["seg"]

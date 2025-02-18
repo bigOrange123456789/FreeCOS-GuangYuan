@@ -64,7 +64,7 @@ def check_feature(sample_set_sup, sample_set_unsup):
 
 class Trainer():
     def __init__(
-        self,Segment_model, predict_Discriminator_model, dataloader_supervised, dataloader_unsupervised,
+        self,Segment_model, Segment_model_EMA, predict_Discriminator_model, dataloader_supervised, dataloader_unsupervised,
           optimizer_l, optimizer_D, lr_policy, lrD_policy, criterion, total_iteration, average_posregion,
           average_negregion
     ):
@@ -82,6 +82,7 @@ class Trainer():
         '''
 
         self.Segment_model = Segment_model
+        self.Segment_model_EMA = Segment_model_EMA
         self.predict_Discriminator_model = predict_Discriminator_model
         self.dataloader_supervised = dataloader_supervised
         self.dataloader_unsupervised = dataloader_unsupervised
@@ -125,8 +126,21 @@ class Trainer():
             csv_head.append(id)
         create_csv(self.csv_loss_path, csv_head)
 
+    def __update_model_ema(self):
+        if not self.Segment_model_EMA == None:
+            alpha = 0.99
+            model = self.Segment_model
+            ema_model = self.Segment_model_EMA
+            model_state = model.state_dict()
+            model_ema_state = ema_model.state_dict()
+            new_dict = {}
+            for key in model_state:
+                new_dict[key] = alpha * model_ema_state[key] + (1 - alpha) * model_state[key]
+            ema_model.load_state_dict(new_dict)
+
     def train(self,epoch,isFirstEpoch):
         Segment_model = self.Segment_model
+        Segment_model_EMA = self.Segment_model_EMA
         predict_Discriminator_model = self.predict_Discriminator_model
         dataloader_supervised = self.dataloader_supervised
         dataloader_unsupervised = self.dataloader_unsupervised
@@ -144,10 +158,12 @@ class Trainer():
                     并行化处理后，原始模型会被封装在一个新的对象中，而这个新对象会有一个.module属性指向原始的模型。
                 .train(): 将模型设置为训练模式。
             '''
-        else:  # 将模型设置为训练模式
+        else: 
             print("start_model_train")
-            Segment_model.train()
+            Segment_model.train() # 将模型设置为训练模式
             predict_Discriminator_model.train()
+            if not Segment_model_EMA == None: #这里我感觉不用设置为训练模式，但是其他论文中这里使用了评估模式
+                Segment_model_EMA.train() # Segment_model_EMA.eval()
         bar_format = '{desc}[{elapsed}<{remaining},{rate_fmt}]'
         pbar = tqdm(range(config.niters_per_epoch), file=sys.stdout, bar_format=bar_format)
         '''进度条
@@ -273,6 +289,7 @@ class Trainer():
                 x0 = x0.to(device)
             return x0
         Segment_model = self.Segment_model
+        Segment_model_EMA = self.Segment_model_EMA
         predict_Discriminator_model = self.predict_Discriminator_model
         criterion = self.criterion
 
@@ -316,6 +333,11 @@ class Trainer():
         # sample_sets：用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
         loss_ce = criterion_bce(pred_sup_l, gts)  # 根据预测结果和标签计算CE损失 # retinal是5 XCAD是0.1 crack是5 # For retinal :5 For XCAD:0.1 5 for crack
         loss_dice = criterion(pred_sup_l, gts)  # 根据预测结果和标签计算Dice损失
+
+        # 1.5 一致性正则化损失
+        if not self.Segment_model_EMA == None:
+            self.__update_model_ema()
+            pred_sup_l2, _, _ = Segment_model_EMA(imgs, mask=gts, trained=True, fake=True)
 
         # 2.对抗损失
         D_seg_target_out = predict_Discriminator_model(pred_target)  # 计算对抗损失 #判别是否为 直线合成血管 or 曲线标注血管
@@ -402,8 +424,7 @@ class Trainer():
                 print("The damping parameter in the configuration file is invalid! (配置文件中的damping参数不合法!)")
                 exit(0)
             return l*c["weight"]
-        
-            
+              
         loss_seg_w = useW_seg(loss_dice,loss_ce,config.seg) # damping:剩余工作量(阻尼) #1->0
         # loss_seg_w = loss_dice + loss_ce * 0.1
         loss_adv_w = useW(loss_adv_target, config.adv) 
