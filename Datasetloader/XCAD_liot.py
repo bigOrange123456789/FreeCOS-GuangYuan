@@ -94,9 +94,12 @@ class DatasetXCAD_aug(data.Dataset):
                 self.ann_path    = os.path.join(datapath, 'train',datapathTrain["label"])  #./Data/XCAD/train/fake_gtvessel_width   #合成标签
                 self.ann_path_3D = os.path.join(datapath, 'train',datapathTrain["label_3D"]) 
                 
-
-                self.img_metadata        = self.load_metadata_supervised()  #train_fakevessel.txt
-                self.background_metadata = self.load_metadata_background()  #train_backvessel.txt
+                if not config.vessel3D:
+                    self.img_metadata        = os.listdir(self.img_path) # self.load_metadata_supervised()  #train_fakevessel.txt
+                    self.background_metadata = os.listdir(self.background_path) # self.load_metadata_background()  #train_backvessel.txt
+                else:
+                    self.img_metadata        = os.listdir(self.img_path_3D)
+                    self.background_metadata = os.listdir(self.background_path_3D)
             else: # 有监督的测试
                 self.img_path = os.path.join(datapath, 'test','img')    #./Data/XCAD/test/img #真实数据
                 self.ann_path = os.path.join(datapath, 'test','gt')     #./Data/XCAD/test/gt  #人工标签
@@ -104,7 +107,7 @@ class DatasetXCAD_aug(data.Dataset):
         else: # 无监督的训练
             self.img_path = os.path.join(datapath, 'train',datapathTrain["img_unsup"]) #./Data/XCAD/train/img
             self.ann_path = os.path.join('logs', config.logname + ".log", "unsup_temp") #伪标签
-            self.img_metadata = self.load_metadata_background()  #train_backvessel.txt
+            self.img_metadata = os.listdir(self.img_path) # self.load_metadata_background()  #train_backvessel.txt
         self.norm_img = transforms.Compose([
             transforms.ToTensor()#将数据由HWC255格式 转换为CHW0～1的格式
         ])

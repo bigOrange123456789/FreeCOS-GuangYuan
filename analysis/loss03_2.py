@@ -57,7 +57,7 @@ def extract_float_from_tensor_string(tensor_string):
 
 
 
-fileName="FreeCOS-GuangYuan31"
+fileName="FreeCOS-GuangYuan32"
 path="../logs/"+ fileName
 # 读取CSV文件
 if not os.path.exists(path+'/train_loss.csv'):

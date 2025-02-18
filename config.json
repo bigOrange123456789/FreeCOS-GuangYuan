@@ -44,8 +44,8 @@
         "img_unsup":"img",
         
         "bg_3D":"bg2",
-        "vessel_3D":"vessel3D_lzc",
-        "label_3D":"fake_gtvessel_width",
+        "vessel_3D":"fake_grayvessel_bend",
+        "label_3D":"fake_gtvessel_bend",
 
         "bg":"img",
         "vessel":"fake_grayvessel_width",
@@ -62,6 +62,6 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "logname":"./FreeCOS33",
-    "version": "2025.02.17--23:57"
+    "logname":"./FreeCOS34",
+    "version": "2025.02.18--14:45"
 }
