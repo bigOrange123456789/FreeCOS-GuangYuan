@@ -108,13 +108,15 @@ class Trainer():
             "loss_ce",
             "loss_dice",
 
-            # 【1.合成监督、2.对抗、3.对比、4.伪监督、5.连通损失】
+            # 【1.合成监督、2.一致性、3.对抗、4.对比、5.伪监督、6.连通损失】
             "loss_seg_w",
+            "loss_cons_w",
             "loss_adv_w",
             "loss_contrast_w",
             "loss_pseudo_w",
             "loss_conn_w",
 
+            "loss_cons",
             "loss_adv",
             "loss_contrast",
             "loss_pseudo",
@@ -163,7 +165,9 @@ class Trainer():
             Segment_model.train() # 将模型设置为训练模式
             predict_Discriminator_model.train()
             if not Segment_model_EMA == None: #这里我感觉不用设置为训练模式，但是其他论文中这里使用了评估模式
-                Segment_model_EMA.train() # Segment_model_EMA.eval()
+                Segment_model_EMA.eval() # Segment_model_EMA.train() #
+                for param in Segment_model_EMA.parameters():
+                    param.requires_grad = False  # 教师模型的参数不计算梯度
         bar_format = '{desc}[{elapsed}<{remaining},{rate_fmt}]'
         pbar = tqdm(range(config.niters_per_epoch), file=sys.stdout, bar_format=bar_format)
         '''进度条
@@ -181,6 +185,7 @@ class Trainer():
         unsupervised_dataloader = iter(dataloader_unsupervised)  # 无监督的数据加载器
 
         sum_loss_seg = 0
+        sum_cons_loss=0
         sum_adv_loss = 0
         sum_Dsrc_loss = 0
         sum_Dtar_loss = 0
@@ -235,13 +240,15 @@ class Trainer():
             sum_loss_seg += loss['loss_seg_w'].item()  # (本次的epoch的)合成监督损失
             sum_celoss += loss['loss_ce']  # (本次的epoch的)CE损失
             sum_diceloss += loss['loss_dice'].item()  # (本次的epoch的)DICE损失
-            # 2.对抗
+            # 2.一致性
+            sum_cons_loss += loss['loss_cons_w'].item()  # (本次的epoch的)对抗损失
+            # 3.对抗
             sum_adv_loss += loss['loss_adv_w'].item()  # (本次的epoch的)对抗损失
-            # 3.对比
+            # 4.对比
             sum_contrastloss += loss['loss_contrast_w'].item()  # (本次的epoch的)加权后的对比损失
-            # # 4.伪监督pseudo
+            # # 5.伪监督pseudo
             # sum_pseudo += loss['loss_contrast_w'].item()
-            # # 5.连通conn
+            # # 6.连通conn
             # sum_conn += loss['loss_contrast_w'].item()
             
             sum_Dsrc_loss += loss['loss_D_src'].item()  # (本次的epoch的)源数据域 判决器损失
@@ -254,6 +261,7 @@ class Trainer():
                         + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
                         + ' lr=%.2e' % lr \
                         + ' loss_seg=%.4f' % loss['loss_seg_w'].item() \
+                        + ' loss_cons=%.4f' % loss['loss_cons_w'].item() \
                         + ' loss_D_tar=%.4f' % loss['loss_D_tar'].item() \
                         + ' loss_D_src=%.4f' % loss['loss_D_src'].item() \
                         + ' loss_adv=%.4f' % loss['loss_adv'].item() \
@@ -299,8 +307,11 @@ class Trainer():
         criterion_contrast = self.criterion_contrast
 
         imgs = minibatch['img']  # imgs: [4, 4, 256, 256] #每个batch有4张图片
-        gts = minibatch['anno_mask']  # gts:  [4, 1, 256, 256]
         imgs = imgs.cuda(non_blocking=True)
+        if Segment_model_EMA != None:
+            imgs_Perturbation = minibatch['img_Perturbation']  # 添加了扰动后的图像
+            imgs_Perturbation = imgs_Perturbation.cuda(non_blocking=True)
+        gts = minibatch['anno_mask']  # gts:  [4, 1, 256, 256]
         gts = gts.cuda(non_blocking=True)
 
         with torch.no_grad():  # 禁用梯度计算
@@ -324,8 +335,8 @@ class Trainer():
         unsup_imgs = unsup_imgs.cuda(non_blocking=True)  # unsup_imgs:[4, 4, 256, 256]
 
         # Start train fake vessel 开始训练合成血管
-        pred_sup_l, sample_set_sup, flag_sup = Segment_model(imgs, mask=gts, trained=True, fake=True)
-        pred_target, sample_set_unsup, flag_un = Segment_model(unsup_imgs, mask=None, trained=True,fake=False)
+        pred_sup_l, sample_set_sup, flag_sup, feature1  = Segment_model(imgs, mask=gts, trained=True, fake=True)
+        pred_target, sample_set_unsup, flag_un,_ = Segment_model(unsup_imgs, mask=None, trained=True,fake=False)
         # mask影响正负样本的获取
 
         # 1.(当前batch的)合成监督损失
@@ -334,19 +345,29 @@ class Trainer():
         loss_ce = criterion_bce(pred_sup_l, gts)  # 根据预测结果和标签计算CE损失 # retinal是5 XCAD是0.1 crack是5 # For retinal :5 For XCAD:0.1 5 for crack
         loss_dice = criterion(pred_sup_l, gts)  # 根据预测结果和标签计算Dice损失
 
-        # 1.5 一致性正则化损失
+        # 2. 一致性正则化损失
         if not self.Segment_model_EMA == None:
             self.__update_model_ema()
-            pred_sup_l2, _, _ = Segment_model_EMA(imgs, mask=gts, trained=True, fake=True)
+            # _, _, _, feature2 = Segment_model_EMA(imgs, mask=gts, trained=True, fake=True)
+            _, _, _, feature2 = Segment_model_EMA(imgs_Perturbation, mask=gts, trained=True, fake=True)
+            with torch.no_grad():  # 禁用梯度计算
+                weight_mask = gts.clone().detach()
+                weight_mask[weight_mask == 0] = 0.1  # 值为0的元素设为0.1
+                weight_mask[weight_mask == 1] = 1  # 值为1的元素保持不变
+                feature1 = feature1 * weight_mask
+                feature2 = feature2 * weight_mask
+            loss_cons = F.mse_loss(feature1, feature2, reduction='mean')# 计算均方误差
+        else:
+            loss_cons = getZero()
 
-        # 2.对抗损失
+        # 3.对抗损失
         D_seg_target_out = predict_Discriminator_model(pred_target)  # 计算对抗损失 #判别是否为 直线合成血管 or 曲线标注血管
         # pred_target      shape=[4, 1, 256, 256]
         # D_seg_target_out shape=[4, 1, 8, 8]
         loss_adv_target = bce_loss(F.sigmoid(D_seg_target_out),  # 无监督曲线标注血管的预测结果
                                    torch.FloatTensor(D_seg_target_out.data.size()).fill_(source_label).cuda())
 
-        # 3.对比学习损失
+        # 4.对比学习损失
         if config.contrast["weight"]>0:
             quary_feature, pos_feature, neg_feature, flag = check_feature(sample_set_sup, sample_set_unsup)
             '''
@@ -374,7 +395,7 @@ class Trainer():
         else:
             loss_contrast = getZero()
 
-        # 4.伪监督损失
+        # 5.伪监督损失
         if config.pseudo_label and isFirstEpoch == False:
             gts_pseudo = unsup_minibatch['anno_mask']  # 原始数据
             gts_pseudo = gts_pseudo.cuda(non_blocking=True)
@@ -392,7 +413,7 @@ class Trainer():
         else:
             loss_pseudo = getZero()
 
-        # 5.连通性损失
+        # 6.连通性损失
         if config.connectivityLoss:  # 使用连通损失
             loss_conn1 = ConnectivityAnalyzer(pred_sup_l).connectivityLoss(config.connectivityLossType)  # 合成监督
             loss_conn2 = ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 无/伪监督
@@ -404,7 +425,9 @@ class Trainer():
             # loss_conn = torch.zeros(0, dtype=torch.float32) # 0
             loss_conn = getZero()
 
-        # 【1.合成监督、2.对抗、3.对比、4.伪监督、5.连通损失】
+
+
+        # 【1.合成监督、2.一致性、3.对抗、4.对比、5.伪监督、6.连通损失】
         def useW_seg(l_d,l_c,c):
             l = l_d * c["weight_dice"] + l_c * c["weight_ce"]
             if c["damping"]=="increase":
@@ -427,6 +450,7 @@ class Trainer():
               
         loss_seg_w = useW_seg(loss_dice,loss_ce,config.seg) # damping:剩余工作量(阻尼) #1->0
         # loss_seg_w = loss_dice + loss_ce * 0.1
+        loss_cons_w = loss_cons * 0.5
         loss_adv_w = useW(loss_adv_target, config.adv) 
         # loss_adv_w = loss_adv_target * damping * 0.25 
         # damping的取值范围是: 1到0
@@ -434,7 +458,7 @@ class Trainer():
         loss_pseudo_w = loss_pseudo * ( 1 - damping ) * 0.01
         loss_conn_w = loss_conn * 0.1
 
-        loss_adv = loss_seg_w + loss_adv_w + loss_contrast_w + loss_pseudo_w + loss_conn_w
+        loss_adv = loss_seg_w + loss_cons_w + loss_adv_w + loss_contrast_w + loss_pseudo_w + loss_conn_w
 
         ############################################################################################################
         # 【1.合成监督】
@@ -470,14 +494,16 @@ class Trainer():
             "loss_ce":loss_ce,
             "loss_dice":loss_dice,
 
-            # 【1.合成监督、2.对抗、3.对比、4.伪监督、5.连通损失】
+            # 【1.合成监督、2.一致性、3.对抗、4.对比、5.伪监督、6.连通损失】
             "loss_seg_w":loss_seg_w,
+            "loss_cons_w":loss_cons_w,
             "loss_adv_w":loss_adv_w,
             "loss_contrast_w":loss_contrast_w,
             "loss_pseudo_w":loss_pseudo_w,
             "loss_conn_w":loss_conn_w,
 
             "loss_adv":loss_adv,
+            "loss_cons":loss_cons,
             "loss_contrast":loss_contrast,
             "loss_pseudo":loss_pseudo,
             "loss_conn":loss_conn

@@ -29,11 +29,13 @@ class Predictor():
         self,
         Segment_model,
         dataloader_val,
+        dataloader_supervised,
         dataloader_unsupervised,
         criterion
     ):
         self.Segment_model=Segment_model
         self.dataloader_val=dataloader_val
+        self.dataloader_sup=dataloader_supervised
         self.dataloader_unsup=dataloader_unsupervised
         self.criterion=criterion # DiceLoss()
 
@@ -142,7 +144,8 @@ class Predictor():
     def showInput(self):
         path = os.path.join('logs', config.logname + ".log", "liot")
         os.makedirs(path, exist_ok=True)
-        loader=self.dataloader_unsup
+        # loader = self.dataloader_unsup
+        loader = self.dataloader_sup
         with torch.no_grad():  # 不进行梯度计算
             for val_idx, minibatch in enumerate(loader):
                 val_img_name = minibatch['img_name']  # 图片名称
@@ -151,7 +154,7 @@ class Predictor():
                 # print("val_imgs",val_imgs.shape)
                 # print("val_imgs[0, 0, :, :]",val_imgs[0, 0, :, :])
 
-                val_imgs_t = minibatch['img_test']*255  # 图片的梯度数据
+                val_imgs_t = minibatch['img_test']  # 图片的梯度数据
                 # val_imgs_t = minibatch['img_copy']  # 图片的梯度数据
                 # val_imgs_t =val_imgs_t*255
 
@@ -170,10 +173,11 @@ class Predictor():
                 for i, image in enumerate(images_np):
                     # 使用PIL创建图像对象，并保存为灰度图
                     img_pil = Image.fromarray(image, mode='L')  # 'L'模式表示灰度图
-                    img_pil.save(os.path.join(path, "input."+val_img_name[i]))
+                    img_pil.save(os.path.join(path, str(i)+"input.png"))
 
                     img_pil = Image.fromarray(images_np_t[i,:,:], mode='L')  # 'L'模式表示灰度图
-                    img_pil.save(os.path.join(path, "test." + val_img_name[i]))
+                    img_pil.save(os.path.join(path, str(i)+"test.png" ))
+                exit(0)
 
     # def evaluate(self,epoch, Segment_model, predict_Discriminator_model, val_target_loader, criterion):
     def evaluate(self, epoch, train_total_loss):

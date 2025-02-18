@@ -107,7 +107,7 @@ def main():
     base_lr = config.lr      # 0.04 # 学习率
     base_lr_D = config.lr_D  # 0.04 # dropout?
 
-    predictor = Predictor(Segment_model, dataloader_val, dataloader_unsupervised, criterion)
+    predictor = Predictor(Segment_model, dataloader_val, dataloader_supervised,dataloader_unsupervised, criterion)
     # predictor.showInput()#测试代码
 
     params_list_l = []
@@ -145,8 +145,9 @@ def main():
     if torch.cuda.device_count() > 1:
         Segment_model = Segment_model.cuda()
         Segment_model = nn.DataParallel(Segment_model)
-        Segment_model_EMA = Segment_model_EMA.cuda()
-        Segment_model_EMA = nn.DataParallel(Segment_model_EMA)
+        if Segment_model_EMA!=None:
+            Segment_model_EMA = Segment_model_EMA.cuda()
+            Segment_model_EMA = nn.DataParallel(Segment_model_EMA)
         average_posregion.cuda()
         average_negregion.cuda()
         predict_Discriminator_model = predict_Discriminator_model.cuda()
@@ -155,13 +156,15 @@ def main():
     elif torch.cuda.is_available():
         print("cuda_is available")
         Segment_model = Segment_model.cuda() # 分割模型
-        Segment_model_EMA = Segment_model_EMA.cuda()
+        if Segment_model_EMA != None:
+            Segment_model_EMA = Segment_model_EMA.cuda()
         average_posregion.cuda()
         average_negregion.cuda()
         predict_Discriminator_model = predict_Discriminator_model.cuda() # 预测判别模型
     else:
         Segment_model = Segment_model
-        Segment_model_EMA = Segment_model_EMA
+        if Segment_model_EMA != None:
+            Segment_model_EMA = Segment_model_EMA
         predict_Discriminator_model = predict_Discriminator_model
 
     best_val_f1 = 0
@@ -170,6 +173,8 @@ def main():
                 optimizer_l, optimizer_D, lr_policy, lrD_policy, criterion, total_iteration, average_posregion,
                 average_negregion)
     # inference(Segment_model, dataloader_val)
+    # predictor.showInput()
+    # exit(0)
     for epoch in range(config.state_epoch, config.nepochs): # 从state_epoch到nepochs-1 # 按照预先设定的回合数量执行，不会提前中止
         '''train_total_loss=0'''
 

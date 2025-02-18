@@ -1,7 +1,7 @@
 {
     "seed": 12345,
-    "batch_size": 4,
-    "batch_size_val": 4,
+    "batch_size": 2,
+    "batch_size_val": 2,
 
     "seg":{
         "weight_dice": 1.0,
@@ -41,6 +41,8 @@
 
     "inputType": "NewLIOT",
     "inputType-OLD": ["LIOT","Origin","NewLIOT","NewLIOT2"],
+
+    "useEMA":true,
 
     "datapath": "../DataSet-images/XCAD_FreeCOS",
     "datapathTrain":{

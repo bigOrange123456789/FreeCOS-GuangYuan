@@ -426,6 +426,7 @@ class UNet_contrast(nn.Module):
         d2 = self.cat_(e1, d2)          # d2[* 128, 256^]
         #d2 = torch.cat((e1, d2), dim=1)
         d2 = self.Up_conv2(d2)          # d2[* 64, 256^]
+        feature = d2 # 用于一致性正则化
         #d2 = d2 + contrast_tensor0
         # d2 [4, 64, 256, 256] <Tensor>
         out = self.Conv(d2)  #根据每个像素点的特征转换为打分 # out[* 1, 256^]
@@ -439,7 +440,7 @@ class UNet_contrast(nn.Module):
         else: #验证
             contrast_tensor0, sample_sets, flag = self.contrast(d2, d1, trained, fake)
 
-        return d1, sample_sets, flag
+        return d1, sample_sets, flag, feature
         # d1：         类0-1标签的预测结果
         # sample_sets：用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
 

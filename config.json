@@ -5,7 +5,7 @@
     
     "seg":{
         "weight_dice": 1.0,
-        "weight_ce"  : 3.0,
+        "weight_ce"  : 0.1,
         "weight_ce-old"  : 0.1,
         "damping":"constant",
         "damping-old":["constant","恒定"]
@@ -39,6 +39,7 @@
     "connectivityLossType":"entropy",
 
     "inputType": "NewLIOT",
+
     "useEMA":true,
 
     "datapath": "../DataSet-images/XCAD_FreeCOS5",
@@ -64,6 +65,6 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "logname":"./FreeCOS35",
-    "version": "2025.02.18--16:00"
+    "logname":"./FreeCOS36",
+    "version": "2025.02.18--23:05"
 }
