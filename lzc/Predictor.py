@@ -79,7 +79,7 @@ class Predictor():
             for val_idx, minibatch in enumerate(loader):
                 val_imgs = minibatch['img']  # 图片的梯度数据
                 val_imgs = val_imgs.cuda(non_blocking=True)  # NCHW
-                val_pred_sup_l, sample_set_unsup, _ = self.Segment_model(val_imgs, mask=None, trained=False, fake=False)
+                val_pred_sup_l, sample_set_unsup, _, _ = self.Segment_model(val_imgs, mask=None, trained=False, fake=False)
                 if not path == None:
                     val_img_name = minibatch['img_name']  # 图片名称
                     if config.onlyMainObj: #True:

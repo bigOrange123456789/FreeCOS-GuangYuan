@@ -99,6 +99,7 @@ C.inputType = C_["inputType"]
 C.useEMA = C_["useEMA"]
 ######################################################################################################
 C.adv = C_["adv"]
+C.cons = C_["cons"]
 C.seg = C_["seg"]
 C.contrast = C_["contrast"]
 C.datapathTrain = C_["datapathTrain"]

@@ -255,8 +255,9 @@ class DatasetXCAD_aug(data.Dataset):
             }
             if img_Perturbation != None:
                 batch["img_Perturbation"] = img_Perturbation  # 扰动图像
-            batch["img_test"] = img_test
-            batch["img_copy"] = img_copy
+            if False:
+                batch["img_test"] = img_test
+                batch["img_copy"] = img_copy
             # print("2supervised",img.shape,anno_mask.shape)
             # print("2.supervised",anno_mask.shape)
             return batch  # 实际训练过程中只用 img、anno_mask 这两个值被用到

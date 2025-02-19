@@ -1,6 +1,6 @@
 {
     "seed": 12345,
-    "batch_size": 15,
+    "batch_size": 14,
     "batch_size_val": 16,
     
     "seg":{
@@ -9,6 +9,11 @@
         "weight_ce-old"  : 0.1,
         "damping":"constant",
         "damping-old":["constant","恒定"]
+    },
+    "cons":{
+        "weight": 5.0,
+        "weight-old": 0.5,
+        "damping":"constant"
     },
     "adv":{
         "weight": 0.25,

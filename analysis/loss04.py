@@ -17,8 +17,8 @@ indicatorFlagList = ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC
        'loss_conn']
 indicatorFlagList = [
        'loss_D_tar', 'loss_D_src', 'loss_adv', 'loss_ce', 'loss_dice',
-       'loss_seg_w', 'loss_adv_w', 'loss_contrast_w', 'loss_pseudo_w','loss_conn_w', 
-       'loss_contrast', 'loss_pseudo', 'loss_conn'] #'loss_adv.1', 'loss_contrast', 'loss_pseudo', 'loss_conn']
+       'loss_seg_w', 'loss_adv_w', 'loss_contrast_w', 'loss_pseudo_w','loss_conn_w', "loss_cons_w",
+       'loss_contrast', 'loss_pseudo', 'loss_conn',"loss_cons"] #'loss_adv.1', 'loss_contrast', 'loss_pseudo', 'loss_conn']
 # axsList = [ 
 #     axs[0,0],axs[0,1],axs[0,2],axs[0,3],axs[0,4],  
 #     axs[1,0],axs[1,1],axs[1,2],axs[1,3],axs[1,4], 
@@ -71,7 +71,11 @@ def progressFile(id,name,color):
     Index(['epoch', 'total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC'], dtype='object')
     '''
     
-    df[indicatorFlag] = df[indicatorFlag].apply(extract_float_from_tensor_string)
+    if indicatorFlag in df:
+        df[indicatorFlag] = df[indicatorFlag].apply(extract_float_from_tensor_string)
+    else:
+        z=pd.Series(0, index=df["epoch"].index)
+        df[indicatorFlag] = z
 
     # 绘制折线图
     # plt.figure(figsize=(10, 6))  # 设置图形大小

@@ -425,8 +425,6 @@ class Trainer():
             # loss_conn = torch.zeros(0, dtype=torch.float32) # 0
             loss_conn = getZero()
 
-
-
         # 【1.合成监督、2.一致性、3.对抗、4.对比、5.伪监督、6.连通损失】
         def useW_seg(l_d,l_c,c):
             l = l_d * c["weight_dice"] + l_c * c["weight_ce"]
@@ -450,7 +448,8 @@ class Trainer():
               
         loss_seg_w = useW_seg(loss_dice,loss_ce,config.seg) # damping:剩余工作量(阻尼) #1->0
         # loss_seg_w = loss_dice + loss_ce * 0.1
-        loss_cons_w = loss_cons * 0.5
+        loss_cons_w = useW_seg(loss_cons,config.cons)
+        #loss_cons_w = loss_cons * 0.5
         loss_adv_w = useW(loss_adv_target, config.adv) 
         # loss_adv_w = loss_adv_target * damping * 0.25 
         # damping的取值范围是: 1到0

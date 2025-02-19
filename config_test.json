@@ -9,6 +9,11 @@
         "damping":"reduce",
         "damping-old":["constant","恒定"]
     },
+    "cons":{
+        "weight": 5.0,
+        "weight-old": 0.5,
+        "damping":"constant"
+    },
     "adv":{
         "weight": 0.25,
         "damping":"reduce",
