@@ -448,7 +448,7 @@ class Trainer():
               
         loss_seg_w = useW_seg(loss_dice,loss_ce,config.seg) # damping:剩余工作量(阻尼) #1->0
         # loss_seg_w = loss_dice + loss_ce * 0.1
-        loss_cons_w = useW_seg(loss_cons,config.cons)
+        loss_cons_w = useW(loss_cons,config.cons)
         #loss_cons_w = loss_cons * 0.5
         loss_adv_w = useW(loss_adv_target, config.adv) 
         # loss_adv_w = loss_adv_target * damping * 0.25 
