@@ -11,7 +11,7 @@ from config import config
 
 from utils.loss_function import ContrastRegionloss_quaryrepeatNCE
 
-from lzc.BCELoss_lzc import BCELoss_lzc
+from lzc.loss.BCELoss_lzc import BCELoss_lzc
 from lzc.ConnectivityAnalyzer import ConnectivityAnalyzer
 from lzc.csv_lib import create_csv,write_csv,getPath_csv
 
