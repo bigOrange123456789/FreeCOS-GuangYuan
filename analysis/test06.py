@@ -35,7 +35,7 @@ with open('test.json', 'r', encoding='utf-8') as file:
     progressFile("FreeCOS-GuangYuan17",'c')
 '''
 
-indicatorFlag='f1'
+indicatorFlag='AUC'
 indicatorFlagList = ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
 assert indicatorFlag in indicatorFlagList
 # pr : precision
@@ -235,10 +235,11 @@ def progressFile04(id,name,color):
     std_indicator = remaining_epochs[indicatorFlag].std()
 
     # 在图中添加均值和标准差的注释
-    axs0.text(max_indicator_epoch + 1, mean_indicator, 
-            f'Max: {max_indicator_value1:.4f}\nMean: {mean_indicator:.4f}\nStd: {std_indicator:.4f}', 
-            verticalalignment='center', horizontalalignment='left', 
-            color=color, fontsize=10, bbox=dict(facecolor='white', alpha=1))
+    if False:
+        axs0.text(max_indicator_epoch + 1, mean_indicator, 
+                f'Max: {max_indicator_value1:.4f}\nMean: {mean_indicator:.4f}\nStd: {std_indicator:.4f}', 
+                verticalalignment='center', horizontalalignment='left', 
+                color=color, fontsize=10, bbox=dict(facecolor='white', alpha=1))
     
     axs0.legend()
 if True:
@@ -297,9 +298,10 @@ def progressFile05(name,color):
         else:
             value = float(value)
         config0[i]=value
-    if "AUC2" in result:
-        value = result["AUC2"]
-        config0["AUC"]=float(value)
+    if False:
+        if "AUC2" in result:
+            value = result["AUC2"]
+            config0["AUC"]=float(value)
 
     print(config0,"\n\n\n")
     if True:

@@ -19,7 +19,6 @@ from utils.loss_function import DiceLoss, Contrastloss, ContrastRegionloss, Cont
 from base_model.discriminator import PredictDiscriminator, PredictDiscriminator_affinity
 
 
-from lzc.BCELoss_lzc import BCELoss_lzc
 from lzc.ConnectivityAnalyzer import ConnectivityAnalyzer
 
 

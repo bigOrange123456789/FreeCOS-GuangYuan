@@ -342,8 +342,12 @@ class Trainer():
         # 1.(当前batch的)合成监督损失
         # pred_sup_l： 类0-1标签的预测结果
         # sample_sets：用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)
-        loss_ce = criterion_bce(pred_sup_l, gts)  # 根据预测结果和标签计算CE损失 # retinal是5 XCAD是0.1 crack是5 # For retinal :5 For XCAD:0.1 5 for crack
-        loss_dice = criterion(pred_sup_l, gts)  # 根据预测结果和标签计算Dice损失
+        if config.seg["weight_ce"]!=0:
+            loss_ce = criterion_bce(pred_sup_l, gts)  # 根据预测结果和标签计算CE损失 # retinal是5 XCAD是0.1 crack是5 # For retinal :5 For XCAD:0.1 5 for crack
+        else: loss_ce = getZero()
+        if config.seg["weight_dice"]!=0:
+            loss_dice = criterion(pred_sup_l, gts)  # 根据预测结果和标签计算Dice损失
+        else: loss_dice = getZero()
 
         # 2. 一致性正则化损失
         if not self.Segment_model_EMA == None:
