@@ -16,6 +16,8 @@ info=[
 import json
 with open('test.json', 'r', encoding='utf-8') as file:
     info = json.load(file)
+with open('test_config.json', 'r', encoding='utf-8') as file:
+    info_config = json.load(file)
 
 '''
     progressFile("FreeCOS-GuangYuan01",'r')
@@ -35,7 +37,7 @@ with open('test.json', 'r', encoding='utf-8') as file:
     progressFile("FreeCOS-GuangYuan17",'c')
 '''
 
-indicatorFlag='AUC'
+indicatorFlag=info_config["indicatorFlag"]#'f1'
 indicatorFlagList = ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
 assert indicatorFlag in indicatorFlagList
 # pr : precision
