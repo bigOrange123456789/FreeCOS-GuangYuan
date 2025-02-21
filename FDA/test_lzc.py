@@ -703,12 +703,13 @@ class Test_lzc4_2():
         
         background_name = "000_PPA_44_PSA_00_8.png"
         self.background_img = Image.open(os.path.join(self.background_path, background_name)).convert('L')
+        self.background_img = Image.open("./im0001.ppm.jpg").convert('L')
         
-        # self.flag="-"
-        # for i in range(16):
-        #     self.step=(i+1)*5
-        #     # print("步长为",self.step)
-        #     self.analysis()
+        self.flag="-"
+        for i in range(50):
+            self.step=(i+1)*5
+            # print("步长为",self.step)
+            self.analysis()
 
         self.flag="+"
         for i in range(50):
@@ -728,7 +729,7 @@ class Test_lzc4_2():
         im_trg = np.expand_dims(im_trg, axis=2) # (512, 512) -> (512, 512, 1)
         im_trg = im_trg.transpose((2, 0, 1)) # 通过转置操作，改变维度顺序
 
-        N=50#257
+        N=257#50#
         for i in range(N):
             print(self.flag+str(self.step),i)
             self.deVessel(im_trg,i,folder_path+'/'+str(i)+'.png')   
