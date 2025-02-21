@@ -50,10 +50,10 @@ class Predictor():
         create_csv(self.val_score_path, csv_head)
 
         if False:  # 加载保存的状态字典
-            self.__loadParm()
+            self.__loadParm('logs/best_Segment.pt')
 
-    def __loadParm(self):
-        checkpoint_path = 'logs/best_Segment.pt'  # os.path.join(cls.logpath, 'best_Segment.pt')
+    def __loadParm(self,checkpoint_path):
+        # checkpoint_path = 'logs/best_Segment.pt'  # os.path.join(cls.logpath, 'best_Segment.pt')
         checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))  # 如果模型是在GPU上训练的，这里指定为'cpu'以确保兼容性
         self.Segment_model.load_state_dict(checkpoint['state_dict'])  # 提取模型状态字典并赋值给模型
 
@@ -135,6 +135,8 @@ class Predictor():
             return val_mean_f1, val_mean_pr, val_mean_re, val_mean_AUC, val_mean_AUC2, val_mean_acc, val_mean_sp, val_mean_jc,val_mean_Dice,val_mean_Dice2
 
     def lastInference(self) :
+        pathParam = os.path.join('logs', config.logname + ".log", "best_Segment.pt")
+        self.__loadParm(pathParam)
         path = os.path.join('logs', config.logname + ".log", "inference")
         self.__inference(self.dataloader_val, path)
     def nextInference(self) :

@@ -38,6 +38,7 @@ with open('test_config.json', 'r', encoding='utf-8') as file:
 '''
 
 indicatorFlag=info_config["indicatorFlag"]#'f1'
+nrows = info_config["nrows"]
 indicatorFlagList = ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
 assert indicatorFlag in indicatorFlagList
 # pr : precision
@@ -131,7 +132,7 @@ def getMaxF1(df):
 def progressFile03(name,color):
     path="../logs/"+name
     # 读取CSV文件
-    df = pd.read_csv(path+'/val_train_f1.csv')
+    df = pd.read_csv(path+'/val_train_f1.csv',nrows=nrows)
     print("name:",name)
     getMaxF1(df)
     
@@ -204,7 +205,7 @@ def progressFile04(id,name,color):
     # assert indicatorFlag in ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
     path="../logs/"+name
     # 读取CSV文件
-    df = pd.read_csv(path+'/val_train_f1.csv')
+    df = pd.read_csv(path+'/val_train_f1.csv', nrows=nrows)
     
     '''# 打印数据框的列名
     print(df.columns)
@@ -263,7 +264,7 @@ config={}
 def progressFile05(name,color):
     path="../logs/"+name
     # 读取CSV文件
-    df = pd.read_csv(path+'/val_train_f1.csv')
+    df = pd.read_csv(path+'/val_train_f1.csv',nrows=nrows)
     print("name:",name)
 
     max_indicator_epoch = df.loc[df["f1"].idxmax(), 'epoch']
