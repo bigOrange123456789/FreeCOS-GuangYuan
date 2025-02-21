@@ -155,18 +155,7 @@ class ConnectivityAnalyzer:
         img_score,     #每个像素的打分
         img_vessel     #血管的mask图片
         '''
-        epsilon = 1e-10
-        # print("img_vessel",img_vessel.shape,type(img_vessel),img_vessel)
-        # exit(0)
-
-        # 计算所有血管区域的总分数
-        # 1. 先将 tensor 展平（从四维展平到二维），形状变为 [4, 256*256]
-        # 2. 对每个图片的像素值求均值，形状变为 [4] #self.mask_tensor.size(0)=4
-        # score_sum = (self.mask_tensor * self.allObj).view(self.mask_tensor.size(0), -1).sum(dim=1)
-        # 计算所有血管区域的总分数
-        # 1. 先将 tensor 展平（从四维展平到二维），形状变为 [4, 256*256]
-        # 2. 对每个图片的像素值求均值，形状变为 [4] #self.mask_tensor.size(0)=4
-        score_all = (img_score * img_vessel).sum()#总分数
+        score_all = img_score[img_score > 0.5].sum() # score_all = (img_score * img_vessel).sum()#总分数
         # print(img_score.shape)
         # print(img_vessel.shape)
         # print(score_sum)
@@ -177,12 +166,12 @@ class ConnectivityAnalyzer:
                 # region_size = np.sum(labeled_array == region_id)
                 # 创建一个与标签图像尺寸相同的布尔数组，并初始化为False
                 # mask = np.zeros_like(img_score, dtype=bool)
-                mask = torch.zeros_like(img_score, dtype=torch.long)
-                # print("mask2:",mask)
-                mask[labeled_array == region_id] = 1 # True
-                # print("mask3:", mask)
-                # exit(0)
-                score_region = (img_score * mask).sum()#区域的分数
+                if False:
+                    mask = torch.zeros_like(img_score, dtype=torch.long)
+                    mask[labeled_array == region_id] = 1 # True
+                    score_region = (img_score * mask).sum()#区域的分数
+                else:
+                    score_region = img_score[labeled_array == region_id].sum()
                 # print("score_region",score_region)
                 # print("(img_score * mask)",(img_score * mask).shape)
                 # print("score_all+epsilon",score_all+epsilon)
@@ -193,36 +182,3 @@ class ConnectivityAnalyzer:
                     entropy_all = entropy_all + entropy_region
         return entropy_all
 
-
-        # 使用 measure.regionprops 函数计算每个连通组件的属性
-        props = measure.regionprops(labeled_array)
-
-        # 创建一个字典来存储每个连通组件的标签和对应的像素数量
-        component_sizes = {prop.label: prop.area for prop in props}
-        # for prop in props:
-        #     # print(type(prop),dir(prop),prop)
-        #     exit(0)
-
-
-
-            # 将目标标签对应的位置设为True，从而生成掩码
-            # mask[labeled_image == target_label] = True
-
-
-        # 如果需要，也可以将组件大小和标签以列表形式返回
-        # labels = list(component_sizes.keys())
-        sizes = list(component_sizes.values())
-
-
-        probs=np.array(sizes)/np.sum(sizes)
-
-        # 为了避免对0取对数（因为0的对数是没有定义的），我们将非常小的概率值替换为一个非常小的正数（例如1e-10）
-
-        probs = np.clip(probs, epsilon, 1.0 - epsilon)
-
-        # 归一化概率分布（虽然使用Dirichlet分布生成的概率分布已经归一化，但此步骤确保万无一失）
-        probs /= np.sum(probs)
-
-        # 计算信息熵
-        entropy = -np.sum(probs * np.log2(probs))
-        return entropy

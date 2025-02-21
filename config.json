@@ -45,7 +45,7 @@
     "pseudo_label": false,
     "onlyMainObj": true,
 
-    "connectivityLoss":false,
+    "connectivityLoss":true,
     "connectivityLossType":"entropy",
 
     "inputType": "Origin",
