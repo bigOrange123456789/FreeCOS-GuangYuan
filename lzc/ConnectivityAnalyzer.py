@@ -46,7 +46,7 @@ class ConnectivityAnalyzer:
                                      torch.zeros_like(mask_tensor))
 
     def getMainObj(self, mask_tensor):
-        mask_tensor=mask_tensor.cpu()
+        mask_tensor=mask_tensor.cpu() # 我猜.转换到CPU当中之后就不会计算梯度了
         # mask_tensor = torch.where(mask_tensor > 0.5, torch.ones_like(mask_tensor),
         #                              torch.zeros_like(mask_tensor))
 

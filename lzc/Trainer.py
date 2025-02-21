@@ -418,7 +418,7 @@ class Trainer():
             loss_pseudo = getZero()
 
         # 6.连通性损失
-        if config.connectivityLoss:  # 使用连通损失
+        if config.connectivityLoss:  # 使用连通损失 #我认为合成监督不怎么需要评估破碎损失、无监督最需要评估破碎损失
             loss_conn1 = ConnectivityAnalyzer(pred_sup_l).connectivityLoss(config.connectivityLossType)  # 合成监督
             loss_conn2 = ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 无/伪监督
             loss_conn = loss_conn1 + loss_conn2
