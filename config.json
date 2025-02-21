@@ -4,9 +4,9 @@
     "batch_size_val": 16,
     
     "seg":{
-        "weight_dice": 0.0,
-        "weight_dice-old": 0.0,
-        "weight_ce"  : 3.0,
+        "weight_dice": 1.0,
+        "weight_dice-old": 1.0,
+        "weight_ce"  : 0.1,
         "weight_ce-old"  : 0.1,
         "damping":"constant",
         "damping-old":["constant","恒定"]
@@ -44,7 +44,8 @@
     "connectivityLoss":false,
     "connectivityLossType":"entropy",
 
-    "inputType": "NewLIOT",
+    "inputType": "Origin",
+    "inputType-old": "NewLIOT",
 
     "useEMA":false,
 
@@ -71,6 +72,7 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "logname":"./FreeCOS38",
-    "version": "2025.02.20--17:00"
+    "logname":"./FreeCOS39",
+    "notes":"Ablation experiment of Input module",
+    "version": "2025.02.21--12:27"
 }
