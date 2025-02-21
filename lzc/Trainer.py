@@ -267,6 +267,7 @@ class Trainer():
                         + ' loss_adv=%.4f' % loss['loss_adv'].item() \
                         + ' loss_ce=%.4f' % loss['loss_ce'] \
                         + ' loss_dice=%.4f' % loss['loss_dice'].item() \
+                        + ' loss_conn=%.4f' % loss['loss_conn'].item() \
                         + ' loss_contrast=%.4f' % loss['loss_contrast_w']
             # if idx%config.idxBatchPrint==0:
             pbar.set_description(print_str, refresh=False)  # 输出本batch的各项损失
@@ -419,9 +420,12 @@ class Trainer():
 
         # 6.连通性损失
         if config.connectivityLoss:  # 使用连通损失 #我认为合成监督不怎么需要评估破碎损失、无监督最需要评估破碎损失
-            loss_conn1 = ConnectivityAnalyzer(pred_sup_l).connectivityLoss(config.connectivityLossType)  # 合成监督
-            loss_conn2 = ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 无/伪监督
-            loss_conn = loss_conn1 + loss_conn2
+            if False:
+                loss_conn1 = ConnectivityAnalyzer(pred_sup_l).connectivityLoss(config.connectivityLossType)  # 合成监督
+                loss_conn2 = ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 无/伪监督
+                loss_conn = loss_conn1 + loss_conn2
+            else:
+                loss_conn = getZero()+ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 无/伪监督
             # if config.pseudo_label and isFirstEpoch == False:
             #     loss_conn3 = ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 伪监督
             #     loss_conn = loss_conn + loss_conn3
@@ -459,9 +463,11 @@ class Trainer():
         # damping的取值范围是: 1到0
         loss_contrast_w = useW(loss_contrast, config.contrast) #loss_contrast_w = loss_contrast * 0.04  # (当前batch的)加权后的对比损失 # weight_contrast = 0.04  # 对比损失的权重
         loss_pseudo_w = loss_pseudo * ( 1 - damping ) * 0.01
-        loss_conn_w = loss_conn * 0.1
+        loss_conn_w = useW(loss_conn, config.conn) #loss_conn_w = loss_conn * 0.1
 
         loss_adv = loss_seg_w + loss_cons_w + loss_adv_w + loss_contrast_w + loss_pseudo_w + loss_conn_w
+        # print("loss_conn_w",loss_conn_w)
+        # loss_adv = loss_conn_w
 
         ############################################################################################################
         # 【1.合成监督】

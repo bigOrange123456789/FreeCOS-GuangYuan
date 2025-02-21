@@ -20,7 +20,8 @@ class ConnectivityAnalyzer:
             print('配置文件中的connectivityLossType参数不合法！')
             exit(0)
     def __connectivityLossEntropy(self):
-        return self.entropyList.mean()
+        # return self.entropyList.mean()
+        return self.entropy
     def __connectivityLossRatio(self):#旧版连通性损失函数的计算方法
         # score_all=mask_tensor*self.getAllObj(mask_tensor)
         # score_main=mask_tensor*self.getMainObj(mask_tensor)
@@ -45,7 +46,7 @@ class ConnectivityAnalyzer:
         return torch.where(mask_tensor > 0.5, torch.ones_like(mask_tensor),
                                      torch.zeros_like(mask_tensor))
 
-    def getMainObj(self, mask_tensor):
+    def getMainObj(self, mask_tensor): #这里的输入是0/1标签
         mask_tensor=mask_tensor.cpu() # 我猜.转换到CPU当中之后就不会计算梯度了
         # mask_tensor = torch.where(mask_tensor > 0.5, torch.ones_like(mask_tensor),
         #                              torch.zeros_like(mask_tensor))
@@ -56,19 +57,31 @@ class ConnectivityAnalyzer:
         # 创建一个空列表来存储处理后的MASK，保持与输入相同的shape
         processed_masks = []
 
-        entropyList=[]
+        # print(mask_tensor.shape, mask_array.shape[0],type(mask_array.shape[0]))
+        # exit(0)
+        # entropyList=[]
+        entropy = 0
         # 遍历每张MASK图片（保持单通道维度）
-        for mask in mask_array:
+        i = 0
+        for mask in mask_array: #对每个批次中的图片逐个进行处理
             # 挤压掉单通道维度以进行连通性检测，但之后要恢复
             mask_squeeze = mask.squeeze()
             if mask_squeeze.sum()==0:#这个对象为空
                 processed_masks.append(mask)
+                i=i+1
                 continue
 
             # 进行连通性检测，返回标记数组和连通区域的数量
             labeled_array, num_features = measure.label(mask_squeeze, connectivity=1, return_num=True)
-            entropy=self.__computeEntropy( labeled_array)
-            entropyList.append(entropy)
+            entropy0=self.__computeEntropy(
+                labeled_array,
+                num_features,
+                self.mask_tensor[i,0,:,:],
+                self.allObj[i,0,:,:]
+            )
+            i = i+1
+            entropy+=entropy0
+            # entropyList.append(entropy0)
             '''
     这行代码调用了measure.label函数，对输入的mask_squeeze数组进行处理。
     mask_squeeze：这是一个二维或三维的数组（通常是二值的，即只包含0和1），表示某种形式的图像或空间数据。
@@ -106,10 +119,11 @@ class ConnectivityAnalyzer:
         else:
             device = torch.device("cpu")  # 如果没有GPU，则使用CPU
 
-        self.entropyList=torch.tensor(entropyList).to(device)
+        # self.entropyList=torch.tensor(entropyList).to(device)
+        self.entropy=entropy/mask_array.shape[0]
 
         return processed_masks_tensor.to(device)
-    def __computeEntropy(self, labeled_array):
+    def __computeEntropy_old(self, labeled_array):
         # 使用 measure.regionprops 函数计算每个连通组件的属性
         props = measure.regionprops(labeled_array)
 
@@ -134,4 +148,81 @@ class ConnectivityAnalyzer:
         entropy = -np.sum(probs * np.log2(probs))
         return entropy
 
+    def __computeEntropy(self, labeled_array,NUM,img_score,img_vessel):
+        '''
+        labeled_array, #标出了连通区域
+        num,           #连通区域个数
+        img_score,     #每个像素的打分
+        img_vessel     #血管的mask图片
+        '''
+        epsilon = 1e-10
+        # print("img_vessel",img_vessel.shape,type(img_vessel),img_vessel)
+        # exit(0)
 
+        # 计算所有血管区域的总分数
+        # 1. 先将 tensor 展平（从四维展平到二维），形状变为 [4, 256*256]
+        # 2. 对每个图片的像素值求均值，形状变为 [4] #self.mask_tensor.size(0)=4
+        # score_sum = (self.mask_tensor * self.allObj).view(self.mask_tensor.size(0), -1).sum(dim=1)
+        # 计算所有血管区域的总分数
+        # 1. 先将 tensor 展平（从四维展平到二维），形状变为 [4, 256*256]
+        # 2. 对每个图片的像素值求均值，形状变为 [4] #self.mask_tensor.size(0)=4
+        score_all = (img_score * img_vessel).sum()#总分数
+        # print(img_score.shape)
+        # print(img_vessel.shape)
+        # print(score_sum)
+        entropy_all = 0
+        if score_all!=0:
+            for region_id in range(1, NUM + 1):
+                # 计算每个连通区域的像素数
+                # region_size = np.sum(labeled_array == region_id)
+                # 创建一个与标签图像尺寸相同的布尔数组，并初始化为False
+                # mask = np.zeros_like(img_score, dtype=bool)
+                mask = torch.zeros_like(img_score, dtype=torch.long)
+                # print("mask2:",mask)
+                mask[labeled_array == region_id] = 1 # True
+                # print("mask3:", mask)
+                # exit(0)
+                score_region = (img_score * mask).sum()#区域的分数
+                # print("score_region",score_region)
+                # print("(img_score * mask)",(img_score * mask).shape)
+                # print("score_all+epsilon",score_all+epsilon)
+                # exit(0)
+                if score_region!=0:
+                    p = score_region / score_all #区域的概率
+                    entropy_region = -p * torch.log(p)
+                    entropy_all = entropy_all + entropy_region
+        return entropy_all
+
+
+        # 使用 measure.regionprops 函数计算每个连通组件的属性
+        props = measure.regionprops(labeled_array)
+
+        # 创建一个字典来存储每个连通组件的标签和对应的像素数量
+        component_sizes = {prop.label: prop.area for prop in props}
+        # for prop in props:
+        #     # print(type(prop),dir(prop),prop)
+        #     exit(0)
+
+
+
+            # 将目标标签对应的位置设为True，从而生成掩码
+            # mask[labeled_image == target_label] = True
+
+
+        # 如果需要，也可以将组件大小和标签以列表形式返回
+        # labels = list(component_sizes.keys())
+        sizes = list(component_sizes.values())
+
+
+        probs=np.array(sizes)/np.sum(sizes)
+
+        # 为了避免对0取对数（因为0的对数是没有定义的），我们将非常小的概率值替换为一个非常小的正数（例如1e-10）
+
+        probs = np.clip(probs, epsilon, 1.0 - epsilon)
+
+        # 归一化概率分布（虽然使用Dirichlet分布生成的概率分布已经归一化，但此步骤确保万无一失）
+        probs /= np.sum(probs)
+
+        # 计算信息熵
+        entropy = -np.sum(probs * np.log2(probs))
+        return entropy

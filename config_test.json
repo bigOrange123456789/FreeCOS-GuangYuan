@@ -1,7 +1,7 @@
 {
     "seed": 12345,
     "batch_size": 2,
-    "batch_size_val": 2,
+    "batch_size_val": 4,
 
     "seg":{
         "weight_dice": 1.0,
@@ -25,9 +25,13 @@
         "damping":"constant",
         "damping-old":["constant","默认恒定"]
     },
+    "conn":{
+        "weight": 0.1,
+        "damping":"constant"
+    },
 
     "vessel3D": true,
-    "dePhase":1,
+    "dePhase":0,
     "dePhase-old":[0,1,2,3],
 
     "ASL": {
@@ -40,14 +44,14 @@
     "pseudo_label": false,
     "onlyMainObj": true,
 
-    "connectivityLoss":false,
+    "connectivityLoss":true,
     "connectivityLossType":"entropy",
     "connectivityLossType-OLD":["ratio","entropy"],
 
-    "inputType": "NewLIOT",
+    "inputType": "Origin",
     "inputType-OLD": ["LIOT","Origin","NewLIOT","NewLIOT2"],
 
-    "useEMA":true,
+    "useEMA":false,
 
     "datapath": "../DataSet-images/XCAD_FreeCOS",
     "datapathTrain":{

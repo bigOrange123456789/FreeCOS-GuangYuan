@@ -102,6 +102,7 @@ C.adv = C_["adv"]
 C.cons = C_["cons"]
 C.seg = C_["seg"]
 C.contrast = C_["contrast"]
+C.conn = C_["conn"]
 C.datapathTrain = C_["datapathTrain"]
 ######################################################################################################
 
