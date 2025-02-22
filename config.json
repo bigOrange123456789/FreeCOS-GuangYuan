@@ -75,7 +75,7 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "logname":"./FreeCOS40",
-    "notes":"Differentiable Connected Information Entropy",
-    "version": "2025.02.21--23:08"
+    "logname":"./FreeCOS41",
+    "notes":"Connected entropy only applies to Unet's decoder",
+    "version": "2025.02.22--16:06"
 }

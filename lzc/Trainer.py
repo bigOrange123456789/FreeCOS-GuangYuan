@@ -229,8 +229,9 @@ class Trainer():
                 unsup_minibatch = next(unsupervised_dataloader)  # 再次尝试获取下一个数据批次
 
             loss = self.__forward(minibatch,unsup_minibatch,damping,isFirstEpoch)
-            self.__backward( loss['loss_adv'] , loss['loss_D_src'] + loss['loss_D_tar'] )
+            self.__backward(loss)
             lr = self.__step(current_idx)
+            torch.cuda.empty_cache()
 
             for i in total_loss:
                 total_loss[i] += loss[i]
@@ -260,15 +261,15 @@ class Trainer():
             print_str = 'Epoch{}/{}'.format(epoch, config.nepochs) \
                         + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
                         + ' lr=%.2e' % lr \
-                        + ' loss_seg=%.4f' % loss['loss_seg_w'].item() \
-                        + ' loss_cons=%.4f' % loss['loss_cons_w'].item() \
-                        + ' loss_D_tar=%.4f' % loss['loss_D_tar'].item() \
-                        + ' loss_D_src=%.4f' % loss['loss_D_src'].item() \
-                        + ' loss_adv=%.4f' % loss['loss_adv'].item() \
-                        + ' loss_ce=%.4f' % loss['loss_ce'] \
-                        + ' loss_dice=%.4f' % loss['loss_dice'].item() \
-                        + ' loss_conn=%.4f' % loss['loss_conn'].item() \
-                        + ' loss_contrast=%.4f' % loss['loss_contrast_w']
+                        + ' seg_w=%.4f' % loss['loss_seg_w'].item() \
+                        + ' cons_w=%.4f' % loss['loss_cons_w'].item() \
+                        + ' D_tar=%.4f' % loss['loss_D_tar'].item() \
+                        + ' D_src=%.4f' % loss['loss_D_src'].item() \
+                        + ' adv=%.4f' % loss['loss_adv'].item() \
+                        + ' ce=%.4f' % loss['loss_ce'] \
+                        + ' dice=%.4f' % loss['loss_dice'].item() \
+                        + ' conn=%.4f' % loss['loss_conn'].item() \
+                        + ' cont_w=%.4f' % loss['loss_contrast_w']
             # if idx%config.idxBatchPrint==0:
             pbar.set_description(print_str, refresh=False)  # 输出本batch的各项损失
 
@@ -465,7 +466,7 @@ class Trainer():
         loss_pseudo_w = loss_pseudo * ( 1 - damping ) * 0.01
         loss_conn_w = useW(loss_conn, config.conn) #loss_conn_w = loss_conn * 0.1
 
-        loss_adv = loss_seg_w + loss_cons_w + loss_adv_w + loss_contrast_w + loss_pseudo_w + loss_conn_w
+        loss_adv = loss_seg_w + loss_cons_w + loss_adv_w + loss_contrast_w + loss_pseudo_w #+ loss_conn_w
         # print("loss_conn_w",loss_conn_w)
         # loss_adv = loss_conn_w
 
@@ -518,15 +519,37 @@ class Trainer():
             "loss_conn":loss_conn
         }
 
-    def __backward(self,loss_adv,loss_D):
-        predict_Discriminator_model = self.predict_Discriminator_model
+    def __backward(self,loss):
+        loss_seg = loss['loss_adv']
+        loss_conn= loss['loss_conn_w']
+        loss_D   = loss['loss_D_src'] + loss['loss_D_tar']
+        def change(model0,flag):
+            for param in model0.parameters():
+                param.requires_grad = flag
+        def open(model0):
+            change(model0,True)
+        def close(model0):
+            change(model0,False)
+        encoder = self.Segment_model.backbone.encoder
+        decoder = self.Segment_model.backbone.decoder
+        contrast = self.Segment_model.backbone.contrast
+        discriminator = self.predict_Discriminator_model
 
-        for param in predict_Discriminator_model.parameters():
-            param.requires_grad = False  # 首先优化分割器、不优化判别器
-        loss_adv.backward(retain_graph=False)  # 计算分割网络参数的梯度,并累加到网络参数的.grad属性中
+        close(discriminator)
+        # 1.1 优化分割网络的解码器
+        useConn = config.connectivityLoss and loss_conn > 0
+        if useConn:
+            close(encoder)
+            close(contrast)
+            loss_conn.backward(retain_graph=True)
+            open(encoder)
+            open(contrast)
 
-        for param in predict_Discriminator_model.parameters():  # 开启判别器的优化
-            param.requires_grad = True # 将判别器中的参数设置为需要计算梯度
+        # 1.2 优化整个分割网络(编码器和解码器都进行优化)
+        loss_seg.backward(retain_graph=False)
+
+        # 2.优化判别器
+        open(discriminator)
         loss_D.backward(retain_graph=False)  # 计算判别器参数的梯度,并累加到网络参数的.grad属性中
 
     def __step(self,current_idx):

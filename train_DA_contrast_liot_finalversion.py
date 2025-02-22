@@ -7,21 +7,15 @@ import torch.nn as nn
 import torch.backends.cudnn as cudnn
 
 from config import config
-from network import Network, Network_UNet, SingleUNet, Single_IBNUNet, Single_contrast_UNet
 
 from utils.init_func import init_weight, group_weight
-from engine.lr_policy import WarmUpPolyLR, CosinLR
-from utils.evaluation_metric import computeF1, compute_allRetinal
+from engine.lr_policy import WarmUpPolyLR
 from Datasetloader.dataset import CSDataset
 from common.logger import Logger
-from utils.loss_function import DiceLoss, Contrastloss, ContrastRegionloss, ContrastRegionloss_noedge, \
-    ContrastRegionloss_supunsup, ContrastRegionloss_NCE, ContrastRegionloss_AllNCE, ContrastRegionloss_quaryrepeatNCE, Triplet
-from base_model.discriminator import PredictDiscriminator, PredictDiscriminator_affinity
+from utils.loss_function import DiceLoss
 
-
-from lzc.ConnectivityAnalyzer import ConnectivityAnalyzer
-
-
+from lzc.ModelDiscriminate import ModelDiscriminate
+from lzc.ModelSegment import ModelSegment
 from lzc.Predictor import Predictor
 from lzc.Trainer import Trainer
 
@@ -90,7 +84,8 @@ def main():
     else:
         print("配置文件中的inputType参数不合法!")
         exit(0)
-    Segment_model = Single_contrast_UNet(n_channels, config.num_classes) # 我猜BN不放在Segment_model中的原因是：训练和评估这两种模式在使用的时候会有差异
+    # Segment_model = Single_contrast_UNet(n_channels, config.num_classes) # 我猜BN不放在Segment_model中的原因是：训练和评估这两种模式在使用的时候会有差异
+    Segment_model = ModelSegment(n_channels, config.num_classes)
     if config.useEMA:
         Segment_model_EMA = Single_contrast_UNet(n_channels, config.num_classes)
     else:
@@ -124,7 +119,8 @@ def main():
                                   momentum=config.momentum,
                                   weight_decay=config.weight_decay)
 
-    predict_Discriminator_model = PredictDiscriminator(num_classes=1)
+    # predict_Discriminator_model = PredictDiscriminator(num_classes=1)
+    predict_Discriminator_model = ModelDiscriminate(num_classes=1)
     init_weight(predict_Discriminator_model, nn.init.kaiming_normal_,
                 BatchNorm2d, config.bn_eps, config.bn_momentum,
                 mode='fan_in', nonlinearity='relu')
