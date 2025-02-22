@@ -96,6 +96,59 @@ class UNet_contrast(nn.Module):
         xd = torch.cat((xe, xd), dim=1)
         return xd
 
+    def __toEncoder(self,x):
+        e1 = self.Conv1(x)  # e1[* 64, 256^] <- x[* 4, 256^]
+
+        e2 = self.Maxpool1(e1)  # 1/2 # e2[* 64, 128^]
+        e2 = self.Conv2(e2)  # e2[* 128, 128^]
+
+        e3 = self.Maxpool2(e2)  # 1/4 # e3[* 128, 64^]
+        e3 = self.Conv3(e3)  # e3[* 256, 64^]
+
+        e4 = self.Maxpool3(e3)  # 1/8 # e4[* 256, 32^]
+        e4 = self.Conv4(e4)  # e4[* 512, 32^]
+
+        e5 = self.Maxpool4(e4)  # 1/16# e5[* 512, 16^]
+        e5 = self.Conv5(e5)  # e5[* 1024, 16^]
+        return e1,e2,e3,e4,e5
+
+    def __toDecoder(self,code):
+        e1, e2, e3, e4, e5 = code
+
+        d5 = self.Up5(e5)  # 1/8  # d5[* 512, 32^]
+        d5 = self.cat_(e4, d5)  # d5[* 1024, 32^]
+        # d5 = torch.cat((e4, d5), dim=1)
+        d5 = self.Up_conv5(d5)  # d5[* 512, 32^]
+
+        d4 = self.Up4(d5)  # 1/4  # d4[* 256, 64^]
+        d4 = self.cat_(e3, d4)  # d4[* 512, 64^]
+        # d4 = torch.cat((e3, d4), dim=1)
+        d4 = self.Up_conv4(d4)  # d4[* 256, 64^]
+
+        d3 = self.Up3(d4)  # 1/2  # d3[* 128, 128^]
+        d3 = self.cat_(e2, d3)  # d3[* 256, 128^]
+        # d3 = torch.cat((e2, d3), dim=1)
+        d3 = self.Up_conv3(d3)  # d3[* 128, 128^]
+
+        d2 = self.Up2(d3)  # 1    # d2[* 64, 256^]
+        d2 = self.cat_(e1, d2)  # d2[* 128, 256^]
+        # d2 = torch.cat((e1, d2), dim=1)
+        d2 = self.Up_conv2(d2)  # d2[* 64, 256^]
+        feature = d2  # 用于一致性正则化
+        # d2 = d2 + contrast_tensor0
+        # d2 [4, 64, 256, 256] <Tensor>
+        score = self.Conv(d2)  # 根据每个像素点的特征转换为打分 # out[* 1, 256^]
+        return score, feature
+    def __codeDetach(self,code):
+        e1, e2, e3, e4, e5 = code
+        codeDetach = e1.detach(), e2.detach(), e3.detach(), e4.detach(), e5.detach()
+        return codeDetach
+    def getPredInterrupt(self,code):
+        codeDetach = self.__codeDetach(code)
+        score, _ =self.__toDecoder(codeDetach)
+        pred = self.active(score)
+        return pred
+
     def forward(self, x, mask, trained,fake):
         '''
         整体架构：
@@ -110,43 +163,10 @@ class UNet_contrast(nn.Module):
             cat:    (c*2,   n   )
             conv:   (c/2,   n   )
         '''
-        e1 = self.Conv1(x) # e1[* 64, 256^] <- x[* 4, 256^]
+        code = self.__toEncoder(x)
+        out, feature = self.__toDecoder(code)
 
-        e2 = self.Maxpool1(e1)    # 1/2 # e2[* 64, 128^]
-        e2 = self.Conv2(e2)             # e2[* 128, 128^]
-
-        e3 = self.Maxpool2(e2)    # 1/4 # e3[* 128, 64^]
-        e3 = self.Conv3(e3)             # e3[* 256, 64^]
-
-        e4 = self.Maxpool3(e3)    # 1/8 # e4[* 256, 32^]
-        e4 = self.Conv4(e4)             # e4[* 512, 32^]
-
-        e5 = self.Maxpool4(e4)    # 1/16# e5[* 512, 16^]
-        e5 = self.Conv5(e5)             # e5[* 1024, 16^]
-
-        d5 = self.Up5(e5)        # 1/8  # d5[* 512, 32^]
-        d5 = self.cat_(e4,d5)           # d5[* 1024, 32^]
-        #d5 = torch.cat((e4, d5), dim=1)
-        d5 = self.Up_conv5(d5)          # d5[* 512, 32^]
-
-        d4 = self.Up4(d5)        # 1/4  # d4[* 256, 64^]
-        d4 = self.cat_(e3, d4)          # d4[* 512, 64^]
-        #d4 = torch.cat((e3, d4), dim=1)
-        d4 = self.Up_conv4(d4)          # d4[* 256, 64^]
-
-        d3 = self.Up3(d4)        # 1/2  # d3[* 128, 128^]
-        d3 = self.cat_(e2, d3)          # d3[* 256, 128^]
-        #d3 = torch.cat((e2, d3), dim=1)
-        d3 = self.Up_conv3(d3)          # d3[* 128, 128^]
-
-        d2 = self.Up2(d3)        # 1    # d2[* 64, 256^]
-        d2 = self.cat_(e1, d2)          # d2[* 128, 256^]
-        #d2 = torch.cat((e1, d2), dim=1)
-        d2 = self.Up_conv2(d2)          # d2[* 64, 256^]
-        feature = d2 # 用于一致性正则化
-        #d2 = d2 + contrast_tensor0
-        # d2 [4, 64, 256, 256] <Tensor>
-        out = self.Conv(d2)  #根据每个像素点的特征转换为打分 # out[* 1, 256^]
+        d2 = feature
         d1 = self.active(out)#将结果转换为类0-1标签 # d1[* 1, 256^]
 
         ### contrastive loss: #对比损失函数
@@ -157,6 +177,13 @@ class UNet_contrast(nn.Module):
         else: #验证
             contrast_tensor0, sample_sets, flag = self.contrast(d2, d1, trained, fake)
 
-        return d1, sample_sets, flag, feature
+        result={
+            "pred":d1,
+            "sample_set":sample_sets,
+            "flag":flag,
+            "feature":feature,
+            "code":code
+        }
+        return result
         # d1：         类0-1标签的预测结果
         # sample_sets：用于对比学习的采样结果(正负像素的数量、特征、均值，正负难易像素的数量、特征)

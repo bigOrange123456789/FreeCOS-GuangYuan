@@ -204,6 +204,7 @@ class Trainer():
         for idx in pbar:
             current_idx = epoch * config.niters_per_epoch + idx
             damping = (1 - current_idx / total_iteration)  # 剩余工作量(damping本意指阻尼) #1->0
+            # 1.梯度归零
             optimizer_l.zero_grad()
             optimizer_D.zero_grad()
             '''
@@ -227,11 +228,13 @@ class Trainer():
             except StopIteration:  # 如果迭代器已经耗尽（引发了StopIteration异常）
                 unsupervised_dataloader = iter(dataloader_unsupervised)  # 则重新初始化迭代器
                 unsup_minibatch = next(unsupervised_dataloader)  # 再次尝试获取下一个数据批次
-
+            #2.向前传播(计算损失)
             loss = self.__forward(minibatch,unsup_minibatch,damping,isFirstEpoch)
+            #3.向后传播(计算梯度)
             self.__backward(loss)
+            #4.更新参数(使用梯度)
             lr = self.__step(current_idx)
-            torch.cuda.empty_cache()
+            torch.cuda.empty_cache() #这是一句清理垃圾的代码，但是感觉没有什么用
 
             for i in total_loss:
                 total_loss[i] += loss[i]
@@ -337,8 +340,12 @@ class Trainer():
         unsup_imgs = unsup_imgs.cuda(non_blocking=True)  # unsup_imgs:[4, 4, 256, 256]
 
         # Start train fake vessel 开始训练合成血管
-        pred_sup_l, sample_set_sup, flag_sup, feature1  = Segment_model(imgs, mask=gts, trained=True, fake=True)
-        pred_target, sample_set_unsup, flag_un,_ = Segment_model(unsup_imgs, mask=None, trained=True,fake=False)
+        r1  = Segment_model(imgs, mask=gts, trained=True, fake=True)
+        pred_sup_l, sample_set_sup, flag_sup, feature1 = r1["pred"], r1["sample_set"], r1["flag"], r1["feature"]
+        r2 = Segment_model(unsup_imgs, mask=None, trained=True,fake=False)
+        pred_target, sample_set_unsup, flag_un = r2["pred"], r2["sample_set"], r2["flag"]
+        if config.connectivityLoss and config.conn["weight"] != 0:#如果需要计算连同性损失
+            pred_target_Interrupt=Segment_model.backbone.getPredInterrupt(r2["code"])
         # mask影响正负样本的获取
 
         # 1.(当前batch的)合成监督损失
@@ -355,7 +362,8 @@ class Trainer():
         if not self.Segment_model_EMA == None:
             self.__update_model_ema()
             # _, _, _, feature2 = Segment_model_EMA(imgs, mask=gts, trained=True, fake=True)
-            _, _, _, feature2 = Segment_model_EMA(imgs_Perturbation, mask=gts, trained=True, fake=True)
+            r3 = Segment_model_EMA(imgs_Perturbation, mask=gts, trained=True, fake=True)
+            feature2 = r3["feature"]
             with torch.no_grad():  # 禁用梯度计算
                 weight_mask = gts.clone().detach()
                 weight_mask[weight_mask == 0] = 0.1  # 值为0的元素设为0.1
@@ -426,7 +434,8 @@ class Trainer():
                 loss_conn2 = ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 无/伪监督
                 loss_conn = loss_conn1 + loss_conn2
             else:
-                loss_conn = getZero()+ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 无/伪监督
+                loss_conn = getZero() + ConnectivityAnalyzer(pred_target_Interrupt).connectivityLoss(config.connectivityLossType)
+                # loss_conn = getZero()+ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 无/伪监督
             # if config.pseudo_label and isFirstEpoch == False:
             #     loss_conn3 = ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 伪监督
             #     loss_conn = loss_conn + loss_conn3
@@ -541,7 +550,8 @@ class Trainer():
         if useConn:
             close(encoder)
             close(contrast)
-            loss_conn.backward(retain_graph=True)
+            # loss_conn.backward(retain_graph=True)
+            loss_conn.backward(retain_graph=False)
             open(encoder)
             open(contrast)
 
@@ -559,8 +569,6 @@ class Trainer():
         lrD_policy = self.lrD_policy
 
         optimizer_l.step()  # 根据梯度更新分割器的参数
-        # if hasattr(Segment_model, 'learnable_scalar'):
-        #     print('learnable_scalar3 ', Segment_model.learnable_scalar, Segment_model.learnable_scalar.grad)
         optimizer_D.step()  # 根据梯度更新判别器的参数
 
         # lr_policy, lrD_policy,      学习率调整的策略    <engine.lr_policy.WarmUpPolyLR>

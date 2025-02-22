@@ -8,7 +8,7 @@ import numpy as np
 from PIL import Image
 
 from lib.ConnectivityAnalyzer import ConnectivityAnalyzer
-from utils.evaluation_metric import computeF1, compute_allRetinal
+from utils.evaluation_metric import compute_allRetinal
 # import csv
 # def create_csv(path, csv_head):
 #     with open(path, 'w', newline='') as f:
@@ -79,7 +79,8 @@ class Predictor():
             for val_idx, minibatch in enumerate(loader):
                 val_imgs = minibatch['img']  # 图片的梯度数据
                 val_imgs = val_imgs.cuda(non_blocking=True)  # NCHW
-                val_pred_sup_l, sample_set_unsup, _, _ = self.Segment_model(val_imgs, mask=None, trained=False, fake=False)
+                result = self.Segment_model(val_imgs, mask=None, trained=False, fake=False)
+                val_pred_sup_l, sample_set_unsup = result["pred"], result["sample_set"]
                 if not path == None:
                     val_img_name = minibatch['img_name']  # 图片名称
                     if config.onlyMainObj: #True:

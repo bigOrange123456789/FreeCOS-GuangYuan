@@ -28,7 +28,8 @@
         "damping-old":["constant","默认恒定"]
     },
     "conn":{
-        "weight": 0.1,
+        "weight": 0.04,
+        "weight-old": 0.1,
         "damping":"constant"
     },
 
@@ -75,7 +76,7 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "logname":"./FreeCOS41",
-    "notes":"Connected entropy only applies to Unet's decoder",
-    "version": "2025.02.22--16:06"
+    "logname":"./FreeCOS42",
+    "notes":"Reduce the connected entropy weight to 40% of its previous value",
+    "version": "2025.02.23--13:58"
 }
