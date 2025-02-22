@@ -39,7 +39,7 @@ with open('test_config.json', 'r', encoding='utf-8') as file:
 
 indicatorFlag=info_config["indicatorFlag"]#'f1'
 nrows = info_config["nrows"]
-indicatorFlagList = ['total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
+indicatorFlagList = ['Dice', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
 assert indicatorFlag in indicatorFlagList
 # pr : precision
 # sp:  specificity
@@ -212,13 +212,11 @@ def progressFile04(id,name,color):
     [5 rows x 9 columns]
     Index(['epoch', 'total_loss', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC'], dtype='object')
     '''
-    
+    if not indicatorFlag in df:
+        return 
     df[indicatorFlag] = df[indicatorFlag].apply(extract_float_from_tensor_string2)
 
-    # 绘制折线图
-    # plt.figure(figsize=(10, 6))  # 设置图形大小
-    # plt.plot(df['epoch'], df['f1'], marker='o', linestyle='-', color='b')  # 绘制折线图
-    axs0.plot(df['epoch'], df[indicatorFlag], linestyle='-', color=color,label=name)  # 绘制折线图
+    
 
     # # 隐藏纵坐标轴的刻度
     # plt.yticks([])
@@ -243,8 +241,15 @@ def progressFile04(id,name,color):
                 f'Max: {max_indicator_value1:.4f}\nMean: {mean_indicator:.4f}\nStd: {std_indicator:.4f}', 
                 verticalalignment='center', horizontalalignment='left', 
                 color=color, fontsize=10, bbox=dict(facecolor='white', alpha=1))
+    name=name+"mean:"+str(round(mean_indicator,2))
+    # 绘制折线图
+    # plt.figure(figsize=(10, 6))  # 设置图形大小
+    # plt.plot(df['epoch'], df['f1'], marker='o', linestyle='-', color='b')  # 绘制折线图
+    axs0.plot(df['epoch'], df[indicatorFlag], linestyle='-', color=color,label=name)  # 绘制折线图
+
     
     axs0.legend()
+    return mean_indicator
 if True:
     for id in range(len(axsList)):
         indicatorFlag=indicatorFlagList[id]
