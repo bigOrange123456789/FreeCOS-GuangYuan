@@ -65,8 +65,7 @@ def check_feature(sample_set_sup, sample_set_unsup):
 class Trainer():
     def __init__(
         self,Segment_model, Segment_model_EMA, predict_Discriminator_model, dataloader_supervised, dataloader_unsupervised,
-          optimizer_l, optimizer_D, lr_policy, lrD_policy, criterion, total_iteration, average_posregion,
-          average_negregion
+          optimizer_l, optimizer_D, lr_policy, lrD_policy, criterion, total_iteration
     ):
         '''
             Segment_model,              分割模型
@@ -77,8 +76,6 @@ class Trainer():
             lr_policy, lrD_policy,      学习率调整的策略    <engine.lr_policy.WarmUpPolyLR>
             criterion,                  评价标准           DiceLoss() type=<utils.loss_function.DiceLoss>
             total_iteration,            总迭代次数         总epoch数=nepochs * niters_per_epoch
-            average_posregion,          平均正区域         torch.zeros((1, 128)),暂时不知道这个对象的作用
-            average_negregion
         '''
 
         self.Segment_model = Segment_model
@@ -92,8 +89,6 @@ class Trainer():
         self.lrD_policy = lrD_policy
         self.criterion = criterion
         self.total_iteration = total_iteration
-        self.average_posregion = average_posregion
-        self.average_negregion = average_negregion
 
         self.bce_loss = nn.BCELoss()
         self.source_label = 0  # 源数据域:合成血管 #用于对抗学习，源数据域的标签
@@ -149,8 +144,6 @@ class Trainer():
         optimizer_l = self.optimizer_l
         optimizer_D = self.optimizer_D
         total_iteration = self.total_iteration
-        average_posregion = self.average_posregion
-        average_negregion = self.average_negregion
 
         if torch.cuda.device_count() > 1:  # 如果有多个CUDA
             Segment_model.module.train()
@@ -292,7 +285,7 @@ class Trainer():
         train_loss_dice = sum_diceloss / len(pbar)  # DICE
         train_loss_contrast = sum_contrastloss / len(pbar)  # 对比
         train_total_loss = train_loss_seg + train_loss_Dtar + train_loss_Dsrc + train_loss_adv + train_loss_contrast
-        return train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss, train_loss_dice, train_loss_ce, train_loss_contrast, average_posregion, average_negregion
+        return train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss, train_loss_dice, train_loss_ce, train_loss_contrast
 
     def __forward(self,minibatch,unsup_minibatch,damping,isFirstEpoch):
         def getZero():

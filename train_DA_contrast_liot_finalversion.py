@@ -87,7 +87,7 @@ def main():
     # Segment_model = Single_contrast_UNet(n_channels, config.num_classes) # 我猜BN不放在Segment_model中的原因是：训练和评估这两种模式在使用的时候会有差异
     Segment_model = ModelSegment(n_channels, config.num_classes)
     if config.useEMA:
-        Segment_model_EMA = Single_contrast_UNet(n_channels, config.num_classes)
+        Segment_model_EMA = ModelSegment(n_channels, config.num_classes)
     else:
         Segment_model_EMA = None
 
@@ -134,8 +134,6 @@ def main():
     lrD_policy = WarmUpPolyLR(base_lr_D, config.lr_power, total_iteration,
                               config.niters_per_epoch * config.warm_up_epoch)
 
-    average_posregion = torch.zeros((1, 128)) # average_posregion ：平均正区？
-    average_negregion = torch.zeros((1, 128)) # average_negregion ：平均负区？
     # 有1个cuda 。torch.cuda.device_count()=1
     if torch.cuda.device_count() > 1:
         Segment_model = Segment_model.cuda()
@@ -143,8 +141,6 @@ def main():
         if Segment_model_EMA!=None:
             Segment_model_EMA = Segment_model_EMA.cuda()
             Segment_model_EMA = nn.DataParallel(Segment_model_EMA)
-        average_posregion.cuda()
-        average_negregion.cuda()
         predict_Discriminator_model = predict_Discriminator_model.cuda()
         predict_Discriminator_model = nn.DataParallel(predict_Discriminator_model)
         # Logger.info('Use GPU Parallel.')
@@ -153,8 +149,6 @@ def main():
         Segment_model = Segment_model.cuda() # 分割模型
         if Segment_model_EMA != None:
             Segment_model_EMA = Segment_model_EMA.cuda()
-        average_posregion.cuda()
-        average_negregion.cuda()
         predict_Discriminator_model = predict_Discriminator_model.cuda() # 预测判别模型
     else:
         Segment_model = Segment_model
@@ -165,21 +159,18 @@ def main():
     best_val_f1 = 0
     Logger.initialize(config, training=True)
     trainer = Trainer(Segment_model,Segment_model_EMA, predict_Discriminator_model, dataloader_supervised, dataloader_unsupervised,
-                optimizer_l, optimizer_D, lr_policy, lrD_policy, criterion, total_iteration, average_posregion,
-                average_negregion)
+                optimizer_l, optimizer_D, lr_policy, lrD_policy, criterion, total_iteration)
     # inference(Segment_model, dataloader_val)
     # predictor.showInput()
     # exit(0)
     for epoch in range(config.state_epoch, config.nepochs): # 从state_epoch到nepochs-1 # 按照预先设定的回合数量执行，不会提前中止
         '''train_total_loss=0'''
 
-        train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss, train_loss_dice, train_loss_ce, train_loss_contrast, average_posregion, average_negregion \
+        train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss, train_loss_dice, train_loss_ce, train_loss_contrast \
             =trainer.train(epoch, dataset_unsupervised.isFirstEpoch)
         print("train_seg_loss:{},train_loss_Dtar:{},train_loss_Dsrc:{},train_loss_adv:{},train_total_loss:{},train_loss_contrast:{}".format(
                 train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss,train_loss_contrast))
         print("train_loss_dice:{},train_loss_ce:{}".format(train_loss_dice, train_loss_ce))
-
-
 
         val_mean_f1 = predictor.evaluate(epoch, train_total_loss)
         if val_mean_f1 > best_val_f1: # F1分数是精确率和召回率的调和平均数

@@ -91,12 +91,12 @@ C.marginInfoNCE = C_['marginInfoNCE']
 C.pseudo_label = C_["pseudo_label"]
 C.onlyMainObj  = C_["onlyMainObj"]
 #5.是否使用连通性损失
-C.connectivityLoss = C_["connectivityLoss"]
-C.connectivityLossType = C_["connectivityLossType"]
+C.connectivityLoss = C_["conn"]["weight"]>0 # C_["connectivityLoss"]
+C.connectivityLossType = C_["conn"]["type"] # C_["connectivityLossType"]
 #6.设置神经网络模型输入的图片格式
 C.inputType = C_["inputType"]
 #7.使用TeacherStudent架构
-C.useEMA = C_["useEMA"]
+C.useEMA = C_["cons"]["useEMA"] #C_["useEMA"]
 ######################################################################################################
 C.adv = C_["adv"]
 C.cons = C_["cons"]

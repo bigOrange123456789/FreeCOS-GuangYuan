@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 from lib.network.ContrastiveHead_myself import ContrastiveHead_myself
 from lib.network.conv_block import conv_block
-
+from config import config
 class up_conv(nn.Module):
     """
     Up Convolution Block
@@ -63,7 +63,10 @@ class UNet_contrast(nn.Module):
         self.Conv = nn.Conv2d(filters[0], n_classes, kernel_size=1, stride=1, padding=0)
         self.active = torch.nn.Sigmoid() #(-inf,+inf)->(0,1)
         # self.contrast = ContrastiveHead_torch(num_convs=1,num_projectfc=2,thred_u=0.1,scale_u=1.0,percent=0.3) #init the contrast head to conv 8;
-        self.contrast = ContrastiveHead_myself(num_convs=1,num_projectfc=2,thred_u=0.1,scale_u=1.0,percent=0.3)
+        if config.contrast["weight"]>0:
+            self.contrast = ContrastiveHead_myself(num_convs=1,num_projectfc=2,thred_u=0.1,scale_u=1.0,percent=0.3)
+        else:
+            self.contrast = None
 
         # self.learnable_scalar = nn.Parameter(torch.tensor(1000.0))  # 用于对比学习的标量
         self.encoder = nn.Sequential(
@@ -170,12 +173,15 @@ class UNet_contrast(nn.Module):
         d1 = self.active(out)#将结果转换为类0-1标签 # d1[* 1, 256^]
 
         ### contrastive loss: #对比损失函数
-        if trained and fake:          # mask是监督值
-            contrast_tensor0, sample_sets, flag = self.contrast(d2,mask,trained,fake)   # pos and neg features of synthetic imgs
-        elif trained and fake==False: # d1是预测值
-            contrast_tensor0, sample_sets, flag = self.contrast(d2, d1, trained, fake)  # pos and neg features of target imgs
-        else: #验证
-            contrast_tensor0, sample_sets, flag = self.contrast(d2, d1, trained, fake)
+        if self.contrast != None:
+            if trained and fake:          # mask是监督值
+                contrast_tensor0, sample_sets, flag = self.contrast(d2,mask,trained,fake)   # pos and neg features of synthetic imgs
+            elif trained and fake==False: # d1是预测值
+                contrast_tensor0, sample_sets, flag = self.contrast(d2, d1, trained, fake)  # pos and neg features of target imgs
+            else: #验证
+                contrast_tensor0, sample_sets, flag = self.contrast(d2, d1, trained, fake)
+        else:
+            contrast_tensor0, sample_sets, flag = None,None,None
 
         result={
             "pred":d1,
