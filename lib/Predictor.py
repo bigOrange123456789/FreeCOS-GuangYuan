@@ -7,7 +7,7 @@ from config import config
 import numpy as np
 from PIL import Image
 
-from lzc.ConnectivityAnalyzer import ConnectivityAnalyzer
+from lib.ConnectivityAnalyzer import ConnectivityAnalyzer
 from utils.evaluation_metric import computeF1, compute_allRetinal
 # import csv
 # def create_csv(path, csv_head):
@@ -22,7 +22,7 @@ from utils.evaluation_metric import computeF1, compute_allRetinal
 #         csv_write = csv.writer(f)
 #         # data_row = ["1","2"]
 #         csv_write.writerow(data_row)
-from lzc.csv_lib import create_csv,write_csv,getPath_csv
+from lib.csv_lib import create_csv,write_csv,getPath_csv
 
 class Predictor():
     def __init__(

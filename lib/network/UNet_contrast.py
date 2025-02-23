@@ -4,8 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from lzc.network.ContrastiveHead_myself import ContrastiveHead_myself
-from lzc.network.conv_block import conv_block
+from lib.network.ContrastiveHead_myself import ContrastiveHead_myself
+from lib.network.conv_block import conv_block
 
 class up_conv(nn.Module):
     """

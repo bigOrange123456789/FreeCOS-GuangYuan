@@ -14,10 +14,10 @@ from Datasetloader.dataset import CSDataset
 from common.logger import Logger
 from utils.loss_function import DiceLoss
 
-from lzc.ModelDiscriminate import ModelDiscriminate
-from lzc.ModelSegment import ModelSegment
-from lzc.Predictor import Predictor
-from lzc.Trainer import Trainer
+from lib.ModelDiscriminate import ModelDiscriminate
+from lib.ModelSegment import ModelSegment
+from lib.Predictor import Predictor
+from lib.Trainer import Trainer
 
 def main():
     # os.getenv('debug'): None

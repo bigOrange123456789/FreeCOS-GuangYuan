@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 from utils.contrastive_utils import get_query_keys_eval, get_query_keys_myself
 
-from lzc.network.conv_block import conv_block
+from lib.network.conv_block import conv_block
 
 class linear_block(nn.Module):
     """

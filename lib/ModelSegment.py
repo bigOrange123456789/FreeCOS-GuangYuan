@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from config import config
-from lzc.network.UNet_contrast import UNet_contrast
+from lib.network.UNet_contrast import UNet_contrast
 
 class ModelSegment(nn.Module): # Single_contrast_UNet 单对比度UNet
     # 在PyTorch中，模型是通过继承torch.nn.Module类来定义的，这使得模型能够利用PyTorch提供的各种神经网络构建块和功能。

@@ -11,9 +11,9 @@ from config import config
 
 from utils.loss_function import ContrastRegionloss_quaryrepeatNCE
 
-from lzc.loss.BCELoss_lzc import BCELoss_lzc
-from lzc.ConnectivityAnalyzer import ConnectivityAnalyzer
-from lzc.csv_lib import create_csv,write_csv,getPath_csv
+from lib.loss.BCELoss_lzc import BCELoss_lzc
+from lib.ConnectivityAnalyzer import ConnectivityAnalyzer
+from lib.csv_lib import create_csv,write_csv,getPath_csv
 
 
 def check_feature(sample_set_sup, sample_set_unsup):
