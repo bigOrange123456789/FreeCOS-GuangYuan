@@ -4,50 +4,7 @@ import random
 from PIL import Image
 from scipy.ndimage import label, generate_binary_structure
 
-class BendFun():
-    def __init__(self):
-        self.c={}
-
-        def bend_error(k0): #f(0)=f(1)=0
-            return (2*k0-1)**2
-
-        def bend(k0,c): #f(0)=f(1)=0 ,最好取值范围是[-1,1]
-            return 0 #无任何弯曲
-        
-        self.c["exponent"]=random.randint(1, 3)            
-        
-        # self.c["x3"]=10*(random.random()-0.5)
-        num=random.randint(0, 2)
-        self.c["x_list"]=[]
-        for i in range(num):
-            self.c["x_list"].append(
-                1.5*(random.random()-0.5)
-            )
-        # self.c["x_list"]=[ 0.5 ]
-        def bend0(x,c): #f(0)=f(1)=0 ,最好取值范围是[-1,1]
-            # f = k0*(k0-1)*(k0-c["x3"])
-            y = 2 * x*(x-1)
-            for x0 in c["x_list"]:
-                y = 2 * y*(x-x0)
-            y = y ** c["exponent"]
-            return y    
-        
-        self.c["sin_cycle"]=random.randint(1, 3) #正弦周期的数量
-        def bend1(x,c):
-            y = np.sin(c["sin_cycle"]*np.pi*x)
-            y = y ** c["exponent"]
-            return y
-        
-        self.bendList=[bend0,bend1]
-        # self.bendList=[bend1]
-        self.bendListIndex=random.randint(0, len(self.bendList)-1)
-        
-        # bend=bendList[0]
-    def get(self,k):
-        f=self.bendList[self.bendListIndex]
-        return f(k,self.c)
-
-
+from BendFun import BendFun
 
 TestFlag = False #是否快速生成低质量图片
 #######################   开始创建一个numpy对象的图片   #########################
