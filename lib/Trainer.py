@@ -526,8 +526,9 @@ class Trainer():
         loss_conn= loss['loss_conn_w']
         loss_D   = loss['loss_D_src'] + loss['loss_D_tar']
         def change(model0,flag):
-            for param in model0.parameters():
-                param.requires_grad = flag
+            if model0!=None:
+                for param in model0.parameters():
+                    param.requires_grad = flag
         def open(model0):
             change(model0,True)
         def close(model0):
