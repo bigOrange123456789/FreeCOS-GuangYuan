@@ -1,7 +1,8 @@
 import json
-with open('test.json', 'r', encoding='utf-8') as file:
-    info = json.load(file)
-
+with open('test_config.json', 'r', encoding='utf-8') as file:
+    info_config = json.load(file)
+    info =info_config["fileList"]
+nrows = info_config["nrows"]
 import pandas as pd
 import matplotlib.pyplot as plt
 import re
@@ -63,7 +64,7 @@ def progressFile(id,name,color):
         print("文件不存在:",path+'/train_loss.csv')
         return
     # 读取CSV文件
-    df = pd.read_csv(path+'/train_loss.csv')
+    df = pd.read_csv(path+'/train_loss.csv',nrows=nrows)
     # print(df[indicatorFlag])
     '''# 打印数据框的列名
     print(df.columns)

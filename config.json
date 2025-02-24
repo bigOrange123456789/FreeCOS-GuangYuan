@@ -1,12 +1,12 @@
 {
     "seed": 12345,
-    "batch_size": 15,
-    "batch_size_val": 16,
+    "batch_size": 22,
+    "batch_size_val": 22,
     
     "seg":{
         "weight_dice": 1.0,
         "weight_dice-note": 1.0,
-        "weight_ce"  : 0.1,
+        "weight_ce"  : 3.0,
         "weight_ce-note"  : 0.1,
         "damping":"constant",
         "damping-note":["constant","恒定"]
@@ -54,8 +54,6 @@
 
     "inputType": "Origin",
 
-    "useEMA":false,
-
     "datapath": "../DataSet-images/XCAD_FreeCOS5",
     "datapathTrain":{
         "img_unsup":"img",
@@ -79,7 +77,7 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "logname":"./FreeCOS43",
-    "notes":"The ablation experiment of comparative learning",
-    "version": "2025.02.23--21:41"
+    "logname":"./FreeCOS44",
+    "notes":"提高ce的权重",
+    "version": "2025.02.24--11:27"
 }
