@@ -12,11 +12,13 @@
         "damping-note":["constant","恒定"]
     },
     "cons":{
-        "useEMA":false,
+        "useEMA":true,
 
         "weight": 5.0,
         "weight-note": 0.5,
-        "damping":"constant"
+        "damping":"constant",
+
+        "type":"cos"
     },
     "adv":{
         "weight": 0.25,
@@ -30,7 +32,7 @@
         "damping-note":["constant","默认恒定"]
     },
     "conn":{
-        "weight": 0.04,
+        "weight": 0,
         "weight-note2": 0.04,
         "weight-note": 0.1,
         "damping":"constant",
@@ -77,7 +79,7 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "logname":"./FreeCOS45",
-    "notes":"强ce+连通熵",
-    "version": "2025.02.24--11:27"
+    "logname":"./FreeCOS46",
+    "notes":"46: 测试余弦一致性正则化",
+    "version": "2025.02.28--01:46"
 }

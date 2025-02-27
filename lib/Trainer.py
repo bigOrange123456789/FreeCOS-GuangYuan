@@ -363,7 +363,21 @@ class Trainer():
                 weight_mask[weight_mask == 1] = 1  # 值为1的元素保持不变
                 feature1 = feature1 * weight_mask
                 feature2 = feature2 * weight_mask
-            loss_cons = F.mse_loss(feature1, feature2, reduction='mean')# 计算均方误差
+            if config.cons["type"]=="mse":
+                loss_cons = F.mse_loss(feature1, feature2, reduction='mean')# 计算均方误差
+            elif config.cons["type"]=="cos":# 计算余弦相似度损失
+                target = torch.ones_like(feature1)
+                loss_cons = F.cosine_embedding_loss(feature1, feature2, target, reduction='mean')
+                '''
+                目标张量 target:
+                    这是一个目标值张量，表示期望的相似度。
+                    如果希望两个特征尽可能相似，目标值通常设置为 1。
+                    如果希望两个特征尽可能不相似，目标值可以设置为 -1。
+                    target 的形状应与输入张量的批次大小一致。
+                '''
+            else:
+                print("配置文件中的cons.type参数不合法!")
+                exit(0)
         else:
             loss_cons = getZero()
 

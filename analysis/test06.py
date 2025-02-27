@@ -213,9 +213,18 @@ def progressFile04(id,name,color):
     '''
     if not indicatorFlag in df:
         return 
-    df[indicatorFlag] = df[indicatorFlag].apply(extract_float_from_tensor_string2)
-
-    
+    if indicatorFlag=="Dice":
+        if "Dice2" in df:
+            value = df["Dice2"].apply(extract_float_from_tensor_string2)
+            df["Dice"]=1-(value)
+        elif "Dice" in df:
+            value = df["Dice"].apply(extract_float_from_tensor_string2)
+            df["Dice"]=1-(value)
+        elif name=="FreeCOS-GuangYuan01": df['Dice']= 0.6611683742394523 # 0.661
+        else:
+            df["Dice"]=0
+    else:
+        df[indicatorFlag] = df[indicatorFlag].apply(extract_float_from_tensor_string2)
 
     # # 隐藏纵坐标轴的刻度
     # plt.yticks([])
