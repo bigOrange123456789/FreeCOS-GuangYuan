@@ -366,15 +366,21 @@ class Trainer():
             if config.cons["type"]=="mse":
                 loss_cons = F.mse_loss(feature1, feature2, reduction='mean')# 计算均方误差
             elif config.cons["type"]=="cos":# 计算余弦相似度损失
-                target = torch.ones_like(feature1)
-                loss_cons = F.cosine_embedding_loss(feature1, feature2, target, reduction='mean')
-                '''
-                目标张量 target:
-                    这是一个目标值张量，表示期望的相似度。
-                    如果希望两个特征尽可能相似，目标值通常设置为 1。
-                    如果希望两个特征尽可能不相似，目标值可以设置为 -1。
-                    target 的形状应与输入张量的批次大小一致。
-                '''
+                # target = torch.ones_like(feature1)#[22, 64, 256, 256]
+                # loss_cons = F.cosine_embedding_loss(feature1, feature2, target, reduction='mean')
+
+                # feature1_ = feature1.permute(0, 2, 3, 1)
+                # feature2_ = feature2.permute(0, 2, 3, 1)
+                # cosine_sim = F.cosine_similarity(feature1_, feature2_, dim=-1) # 计算余弦相似度
+                # cosine_loss = (1-cosine_sim)/2
+                # loss_cons = cosine_loss.mean()
+
+                dot_product = torch.sum(feature1 * feature2, dim=1, keepdim=True) # 计算 feature1 和 feature2 的点积
+                norm1 = torch.norm(feature1, p=2, dim=1, keepdim=True) # 计算 feature1 和 feature2 的模长
+                norm2 = torch.norm(feature2, p=2, dim=1, keepdim=True)
+                cosine_similarity = dot_product / (norm1 * norm2)# 计算余弦相似度
+                loss_cons = torch.mean((1-cosine_similarity)/2)
+
             else:
                 print("配置文件中的cons.type参数不合法!")
                 exit(0)
