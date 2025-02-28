@@ -112,7 +112,7 @@ class DatasetXCAD_aug(data.Dataset):
             else:  # 有监督的测试
                 self.img_path = os.path.join(datapath, 'test', 'img')  # ./Data/XCAD/test/img #真实数据
                 self.ann_path = os.path.join(datapath, 'test', 'gt')  # ./Data/XCAD/test/gt  #人工标签
-                self.img_metadata = self.load_metadata_testsupervised()  # test_img.txt
+                self.img_metadata =os.listdir(self.img_path)# self.load_metadata_testsupervised()  # test_img.txt
         else:  # 无监督的训练
             self.img_path = os.path.join(datapath, 'train', datapathTrain["img_unsup"])  # ./Data/XCAD/train/img
             self.ann_path = os.path.join('logs', config.logname + ".log", "unsup_temp")  # 伪标签
