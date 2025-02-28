@@ -12,12 +12,11 @@
         "damping-note":["constant","恒定"]
     },
     "cons":{
-        "useEMA":false,
-
         "weight": 5.0,
         "weight-note": 0.5,
         "damping":"constant",
 
+        "useEMA":false,
         "type":"cos"
     },
     "adv":{
@@ -80,7 +79,7 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "logname":"./FreeCOS47",
-    "notes":"47: 判别器的消融实验",
-    "version": "2025.02.28--10:47"
+    "logname":"./FreeCOS48_1",
+    "notes":"48_1: 将EMA与CONS想分离",
+    "version": "2025.02.28--18:27"
 }

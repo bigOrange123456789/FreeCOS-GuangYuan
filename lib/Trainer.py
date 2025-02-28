@@ -309,7 +309,7 @@ class Trainer():
 
         imgs = minibatch['img']  # imgs: [4, 4, 256, 256] #每个batch有4张图片
         imgs = imgs.cuda(non_blocking=True)
-        if Segment_model_EMA != None:
+        if config.cons["weight"]>0:#if Segment_model_EMA != None:
             imgs_Perturbation = minibatch['img_Perturbation']  # 添加了扰动后的图像
             imgs_Perturbation = imgs_Perturbation.cuda(non_blocking=True)
         gts = minibatch['anno_mask']  # gts:  [4, 1, 256, 256]
@@ -355,10 +355,13 @@ class Trainer():
         else: loss_dice = getZero()
 
         # 2. 一致性正则化损失
-        if not self.Segment_model_EMA == None:
+        if config.cons["weight"]>0: # if not self.Segment_model_EMA == None:
             self.__update_model_ema()
             # _, _, _, feature2 = Segment_model_EMA(imgs, mask=gts, trained=True, fake=True)
-            r3 = Segment_model_EMA(imgs_Perturbation, mask=gts, trained=True, fake=True)
+            if self.Segment_model_EMA != None:
+                r3 = Segment_model_EMA(imgs_Perturbation, mask=gts, trained=True, fake=True)
+            else:
+                r3 = Segment_model(imgs_Perturbation, mask=gts, trained=True, fake=True)
             feature2 = r3["feature"]
             with torch.no_grad():  # 禁用梯度计算
                 weight_mask = gts.clone().detach()

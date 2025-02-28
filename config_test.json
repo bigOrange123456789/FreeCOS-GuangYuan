@@ -10,11 +10,12 @@
         "damping-note":["constant","恒定"]
     },
     "cons":{
-        "useEMA":false,
-
         "weight": 5.0,
         "weight-note": 0.5,
-        "damping":"constant"
+        "damping":"constant",
+
+        "useEMA":false,
+        "type":"cos"
     },
     "adv":{
         "weight": 0.25,
