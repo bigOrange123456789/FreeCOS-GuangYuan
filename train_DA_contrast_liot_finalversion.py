@@ -120,12 +120,16 @@ def main():
                                   weight_decay=config.weight_decay)
 
     # predict_Discriminator_model = PredictDiscriminator(num_classes=1)
-    predict_Discriminator_model = ModelDiscriminate(num_classes=1)
-    init_weight(predict_Discriminator_model, nn.init.kaiming_normal_,
+    if config.adv["weight"]>0:
+        predict_Discriminator_model = ModelDiscriminate(num_classes=1)
+        init_weight(predict_Discriminator_model, nn.init.kaiming_normal_,
                 BatchNorm2d, config.bn_eps, config.bn_momentum,
                 mode='fan_in', nonlinearity='relu')
-    optimizer_D = torch.optim.Adam(predict_Discriminator_model.parameters(),#判别器中的全部参数
+        optimizer_D = torch.optim.Adam(predict_Discriminator_model.parameters(),#判别器中的全部参数
                                    lr=base_lr_D, betas=(0.9, 0.99))
+    else:
+        predict_Discriminator_model = None    
+        optimizer_D = None
 
     # config lr policy
     total_iteration = config.nepochs * config.niters_per_epoch  # nepochs=137  niters=C.max_samples // C.batch_size
@@ -149,12 +153,14 @@ def main():
         Segment_model = Segment_model.cuda() # 分割模型
         if Segment_model_EMA != None:
             Segment_model_EMA = Segment_model_EMA.cuda()
-        predict_Discriminator_model = predict_Discriminator_model.cuda() # 预测判别模型
+        if predict_Discriminator_model!=None:
+            predict_Discriminator_model = predict_Discriminator_model.cuda() # 预测判别模型
     else:
         Segment_model = Segment_model
         if Segment_model_EMA != None:
             Segment_model_EMA = Segment_model_EMA
-        predict_Discriminator_model = predict_Discriminator_model
+        if predict_Discriminator_model!=None:
+            predict_Discriminator_model = predict_Discriminator_model
 
     best_val_f1 = 0
     Logger.initialize(config, training=True)
@@ -176,7 +182,8 @@ def main():
         if val_mean_f1 > best_val_f1: # F1分数是精确率和召回率的调和平均数
             best_val_f1 = val_mean_f1
             Logger.save_model_f1_S(Segment_model, epoch, val_mean_f1, optimizer_l) #保存到best_Segment.pt中
-            Logger.save_model_f1_T(predict_Discriminator_model, epoch, val_mean_f1, optimizer_D) #保存到best_Dis.pt中
+            if predict_Discriminator_model!=None:
+                Logger.save_model_f1_T(predict_Discriminator_model, epoch, val_mean_f1, optimizer_D) #保存到best_Dis.pt中
 
         if config.pseudo_label:
             predictor.nextInference()

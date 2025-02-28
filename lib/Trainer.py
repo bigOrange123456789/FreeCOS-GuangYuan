@@ -147,7 +147,8 @@ class Trainer():
 
         if torch.cuda.device_count() > 1:  # 如果有多个CUDA
             Segment_model.module.train()
-            predict_Discriminator_model.module.train()
+            if predict_Discriminator_model!=None:
+                predict_Discriminator_model.module.train()
             '''
                 .module: 这个属性通常在模型被封装或复制时出现。
                     并行化处理后，原始模型会被封装在一个新的对象中，而这个新对象会有一个.module属性指向原始的模型。
@@ -156,7 +157,8 @@ class Trainer():
         else: 
             print("start_model_train")
             Segment_model.train() # 将模型设置为训练模式
-            predict_Discriminator_model.train()
+            if predict_Discriminator_model!=None:
+                predict_Discriminator_model.train()
             if not Segment_model_EMA == None: #这里我感觉不用设置为训练模式，但是其他论文中这里使用了评估模式
                 Segment_model_EMA.eval() # Segment_model_EMA.train() #
                 for param in Segment_model_EMA.parameters():
@@ -199,7 +201,8 @@ class Trainer():
             damping = (1 - current_idx / total_iteration)  # 剩余工作量(damping本意指阻尼) #1->0
             # 1.梯度归零
             optimizer_l.zero_grad()
-            optimizer_D.zero_grad()
+            if predict_Discriminator_model!=None:
+                optimizer_D.zero_grad()
             '''
                 优化器（Optimizer）：根据梯度来更新的参数。
                 反向传播（Backpropagation）：计算每个参数的梯度。
@@ -388,11 +391,14 @@ class Trainer():
             loss_cons = getZero()
 
         # 3.对抗损失
-        D_seg_target_out = predict_Discriminator_model(pred_target)  # 计算对抗损失 #判别是否为 直线合成血管 or 曲线标注血管
-        # pred_target      shape=[4, 1, 256, 256]
-        # D_seg_target_out shape=[4, 1, 8, 8]
-        loss_adv_target = bce_loss(F.sigmoid(D_seg_target_out),  # 无监督曲线标注血管的预测结果
-                                   torch.FloatTensor(D_seg_target_out.data.size()).fill_(source_label).cuda())
+        if config.adv["weight"]>0:
+            D_seg_target_out = predict_Discriminator_model(pred_target)  # 计算对抗损失 #判别是否为 直线合成血管 or 曲线标注血管
+            # pred_target      shape=[4, 1, 256, 256]
+            # D_seg_target_out shape=[4, 1, 8, 8]
+            loss_adv_target = bce_loss(F.sigmoid(D_seg_target_out),  # 无监督曲线标注血管的预测结果
+                                    torch.FloatTensor(D_seg_target_out.data.size()).fill_(source_label).cuda())
+        else:
+            loss_adv_target = getZero()
 
         # 4.对比学习损失
         if config.contrast["weight"]>0:
@@ -493,31 +499,36 @@ class Trainer():
         # loss_adv = loss_conn_w
 
         ############################################################################################################
-        # 【1.合成监督】
-        pred_sup_l = pred_sup_l.detach() # 这样可以确保接下来不优化分割器
-        # pred_sup_l： 类0-1标签的预测结果 shape=[4, 1, 256, 256]
-        # “分离”出一个副本，这个副本在自动微分过程中不会被考虑用于梯度计算。
-        D_out_src = predict_Discriminator_model(pred_sup_l)  # D_out_src.shape=[4, 1, 8, 8]
+        if predict_Discriminator_model!=None:
+            # 【1.合成监督】
+            pred_sup_l = pred_sup_l.detach() # 这样可以确保接下来不优化分割器
+            # pred_sup_l： 类0-1标签的预测结果 shape=[4, 1, 256, 256]
+            # “分离”出一个副本，这个副本在自动微分过程中不会被考虑用于梯度计算。
+            D_out_src = predict_Discriminator_model(pred_sup_l)  # D_out_src.shape=[4, 1, 8, 8]
 
-        loss_D_src = bce_loss(F.sigmoid(D_out_src),  # 判别器的目标：有监督合成图片->源数据域
-                              torch.FloatTensor(D_out_src.data.size()).fill_(source_label).cuda())
-        loss_D_src = loss_D_src / 8  # 损失函数加权
-        # loss_D_src.backward(retain_graph=False)  # 计算判别器参数的梯度,并累加到网络参数的.grad属性中
+            loss_D_src = bce_loss(F.sigmoid(D_out_src),  # 判别器的目标：有监督合成图片->源数据域
+                                torch.FloatTensor(D_out_src.data.size()).fill_(source_label).cuda())
+            loss_D_src = loss_D_src / 8  # 损失函数加权
+            # loss_D_src.backward(retain_graph=False)  # 计算判别器参数的梯度,并累加到网络参数的.grad属性中
 
-        # 【2.无/伪监督】
-        pred_target = pred_target.detach()
-        D_out_tar = predict_Discriminator_model(pred_target)  # 判别 无监督真实图片
+            # 【2.无/伪监督】
+            pred_target = pred_target.detach()
+            D_out_tar = predict_Discriminator_model(pred_target)  # 判别 无监督真实图片
 
-        if False:#测试代码
-            print("D_out_tar",D_out_tar.shape,type(D_out_tar))
-            print("D_out_tar",D_out_tar)
-            print()
-            a=F.sigmoid(D_out_tar)
-            b=torch.FloatTensor(D_out_tar.data.size()).fill_(target_label).cuda()
-            bce_loss(a,b)
-        loss_D_tar = bce_loss(F.sigmoid(D_out_tar), torch.FloatTensor(
-            D_out_tar.data.size()).fill_(target_label).cuda())  # 判别器的目标：无监督真实图片->目标数据域
-        loss_D_tar = loss_D_tar / 8  # bias #损失函数加权
+            if False:#测试代码
+                print("D_out_tar",D_out_tar.shape,type(D_out_tar))
+                print("D_out_tar",D_out_tar)
+                print()
+                a=F.sigmoid(D_out_tar)
+                b=torch.FloatTensor(D_out_tar.data.size()).fill_(target_label).cuda()
+                bce_loss(a,b)
+            loss_D_tar = bce_loss(F.sigmoid(D_out_tar), torch.FloatTensor(
+                D_out_tar.data.size()).fill_(target_label).cuda())  # 判别器的目标：无监督真实图片->目标数据域
+            loss_D_tar = loss_D_tar / 8  # bias #损失函数加权
+        else:
+            loss_D_src = getZero()
+            loss_D_tar = getZero()
+
 
         return {
             "loss_D_tar":loss_D_tar,
@@ -573,8 +584,9 @@ class Trainer():
         loss_seg.backward(retain_graph=False)
 
         # 2.优化判别器
-        open(discriminator)
-        loss_D.backward(retain_graph=False)  # 计算判别器参数的梯度,并累加到网络参数的.grad属性中
+        if config.adv["weight"]>0:
+            open(discriminator)
+            loss_D.backward(retain_graph=False)  # 计算判别器参数的梯度,并累加到网络参数的.grad属性中
 
     def __step(self,current_idx):
         optimizer_l = self.optimizer_l
@@ -583,7 +595,8 @@ class Trainer():
         lrD_policy = self.lrD_policy
 
         optimizer_l.step()  # 根据梯度更新分割器的参数
-        optimizer_D.step()  # 根据梯度更新判别器的参数
+        if optimizer_D!=None:
+            optimizer_D.step()  # 根据梯度更新判别器的参数
 
         # lr_policy, lrD_policy,      学习率调整的策略    <engine.lr_policy.WarmUpPolyLR>
         lr = lr_policy.get_lr(current_idx)  # lr change #调整学习率
@@ -591,9 +604,10 @@ class Trainer():
         optimizer_l.param_groups[1]['lr'] = lr  # BN
         # for i in range(2, len(optimizer_l.param_groups)):   没用
         #     optimizer_l.param_groups[i]['lr'] = lr
-
-        Lr_D = lrD_policy.get_lr(current_idx)
-        optimizer_D.param_groups[0]['lr'] = Lr_D  # 判别器
+        
+        if optimizer_D!=None:
+            Lr_D = lrD_policy.get_lr(current_idx)
+            optimizer_D.param_groups[0]['lr'] = Lr_D  # 判别器
         # for i in range(2, len(optimizer_D.param_groups)):  没用
         #     optimizer_D.param_groups[i]['lr'] = Lr_D
         return lr
