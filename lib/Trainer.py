@@ -212,18 +212,23 @@ class Trainer():
                 因此需要清零梯度，以确保梯度计算不会受到之前迭代梯度的影响。
             '''
 
-            try:
-                minibatch = next(dataloader)  # 获取一个batch的有监督数据
-            except StopIteration:  # 如果加载完一个epoch，就重新初始化加载器
-                dataloader = iter(dataloader_supervised)
-                minibatch = next(dataloader)
+            while True:
+                try:
+                    minibatch = next(dataloader)  # 获取一个batch的有监督数据
+                except StopIteration:  # 如果加载完一个epoch，就重新初始化加载器
+                    dataloader = iter(dataloader_supervised)
+                    minibatch = next(dataloader)
+                if not torch.isnan(torch.sum(minibatch["img"])):break
+            
+            while True:
+                try:  # 获取一个batch的无监督数据
+                    unsup_minibatch = next(unsupervised_dataloader)
+                    # 这段代码尝试从unsupervised_dataloader迭代器中获取下一个数据批次。
+                except StopIteration:  # 如果迭代器已经耗尽（引发了StopIteration异常）
+                    unsupervised_dataloader = iter(dataloader_unsupervised)  # 则重新初始化迭代器
+                    unsup_minibatch = next(unsupervised_dataloader)  # 再次尝试获取下一个数据批次
+                if not torch.isnan(torch.sum(unsup_minibatch["img"])):break
 
-            try:  # 获取一个batch的无监督数据
-                unsup_minibatch = next(unsupervised_dataloader)
-                # 这段代码尝试从unsupervised_dataloader迭代器中获取下一个数据批次。
-            except StopIteration:  # 如果迭代器已经耗尽（引发了StopIteration异常）
-                unsupervised_dataloader = iter(dataloader_unsupervised)  # 则重新初始化迭代器
-                unsup_minibatch = next(unsupervised_dataloader)  # 再次尝试获取下一个数据批次
             #2.向前传播(计算损失)
             loss = self.__forward(minibatch,unsup_minibatch,damping,isFirstEpoch)
             #3.向后传播(计算梯度)
@@ -291,6 +296,7 @@ class Trainer():
         return train_loss_seg, train_loss_Dtar, train_loss_Dsrc, train_loss_adv, train_total_loss, train_loss_dice, train_loss_ce, train_loss_contrast
 
     def __forward(self,minibatch,unsup_minibatch,damping,isFirstEpoch):
+        # print("unsup_minibatch",torch.sum(unsup_minibatch),torch.sum(unsup_minibatch)!=None)
         def getZero():
             x0=torch.tensor(0.0) # torch.zeros(0, dtype=torch.float32) # 0
             if torch.cuda.is_available():
@@ -336,6 +342,7 @@ class Trainer():
         unsup_imgs = unsup_imgs.cuda(non_blocking=True)  # unsup_imgs:[4, 4, 256, 256]
 
         # Start train fake vessel 开始训练合成血管
+        # print("imgs",torch.sum(imgs))
         r1  = Segment_model(imgs, mask=gts, trained=True, fake=True)
         pred_sup_l, sample_set_sup, flag_sup, feature1 = r1["pred"], r1["sample_set"], r1["flag"], r1["feature"]
         r2 = Segment_model(unsup_imgs, mask=None, trained=True,fake=False)
@@ -398,6 +405,11 @@ class Trainer():
             D_seg_target_out = predict_Discriminator_model(pred_target)  # 计算对抗损失 #判别是否为 直线合成血管 or 曲线标注血管
             # pred_target      shape=[4, 1, 256, 256]
             # D_seg_target_out shape=[4, 1, 8, 8]
+            # if True:
+            #     print()
+            #     print("1.unsup_imgs",torch.sum(unsup_imgs))
+            #     print("2.pred_target",torch.sum(pred_target))
+            #     print("3.D_seg_target_out",torch.sum(D_seg_target_out))
             loss_adv_target = bce_loss(F.sigmoid(D_seg_target_out),  # 无监督曲线标注血管的预测结果
                                     torch.FloatTensor(D_seg_target_out.data.size()).fill_(source_label).cuda())
         else:
@@ -519,12 +531,13 @@ class Trainer():
             D_out_tar = predict_Discriminator_model(pred_target)  # 判别 无监督真实图片
 
             if False:#测试代码
-                print("D_out_tar",D_out_tar.shape,type(D_out_tar))
-                print("D_out_tar",D_out_tar)
-                print()
-                a=F.sigmoid(D_out_tar)
-                b=torch.FloatTensor(D_out_tar.data.size()).fill_(target_label).cuda()
-                bce_loss(a,b)
+                # print("D_out_tar",D_out_tar.shape,type(D_out_tar))
+                print("pred_target",torch.sum(pred_target))
+                print("D_out_tar",torch.sum(D_out_tar))
+                # print()
+                # a=F.sigmoid(D_out_tar)
+                # b=torch.FloatTensor(D_out_tar.data.size()).fill_(target_label).cuda()
+                # bce_loss(a,b)
             loss_D_tar = bce_loss(F.sigmoid(D_out_tar), torch.FloatTensor(
                 D_out_tar.data.size()).fill_(target_label).cuda())  # 判别器的目标：无监督真实图片->目标数据域
             loss_D_tar = loss_D_tar / 8  # bias #损失函数加权

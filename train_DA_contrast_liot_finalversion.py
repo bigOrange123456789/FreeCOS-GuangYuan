@@ -27,6 +27,7 @@ def main():
     #     is_debug = False
     # parser = argparse.ArgumentParser()
     os.environ['MASTER_PORT'] = '169711' #“master_port”的意思是主端口
+    os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
     # args = parser.parse_args()
     cudnn.benchmark = True #benchmark的意思是基准

@@ -782,28 +782,28 @@ class DatasetXCAD_aug(data.Dataset):
     def read_mask(self, img_name):
         mask = np.array(Image.open(os.path.join(self.ann_path, img_name)).convert('L'))
         mask[mask == 0] = 0
-        mask[mask == 255] = 1
+        mask[mask != 0] = 1#mask[mask == 255] = 1
         mask = torch.from_numpy(mask).float().unsqueeze(0)
         return mask
 
     def read_mask_3D(self, img_name):
         mask = np.array(Image.open(os.path.join(self.ann_path_3D, img_name)).convert('L'))
         mask[mask == 0] = 0
-        mask[mask == 255] = 1
+        mask[mask != 0] = 1#mask[mask == 255] = 1
         mask = torch.from_numpy(mask).float().unsqueeze(0)
         return mask
 
     def read_ignore_mask(self, img_name):
         mask = np.array(Image.open(os.path.join(self.ignore_path, img_name) + '.png'))
         mask[mask == 0] = 0
-        mask[mask == 255] = 1
+        mask[mask != 0] = 1#mask[mask == 255] = 1
         mask = torch.from_numpy(mask).float().unsqueeze(0)
         return mask
 
     def read_boundary(self, img_name):
         mask = np.array(Image.open(os.path.join(self.bd_path, img_name) + '.png'))
         mask[mask == 0] = 0
-        mask[mask == 255] = 1
+        mask[mask != 0] = 1#mask[mask == 255] = 1
         mask = torch.from_numpy(mask).float().unsqueeze(0)
         return mask
 

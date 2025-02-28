@@ -77,6 +77,7 @@ class Predictor():
             val_sum_AUC2 = 0
 
             for val_idx, minibatch in enumerate(loader):
+                if torch.isnan(torch.sum(minibatch["img"])):continue
                 val_imgs = minibatch['img']  # 图片的梯度数据
                 val_imgs = val_imgs.cuda(non_blocking=True)  # NCHW
                 result = self.Segment_model(val_imgs, mask=None, trained=False, fake=False)

@@ -12,6 +12,7 @@ def calAUC(pred,gt):
     原文链接：https://blog.csdn.net/qq_46020653/article/details/119613712
     '''
     #get 1-D
+    gt = torch.where(gt == 0, 0.0, 1.0)
     pred_1D = np.array(pred.cpu()).flatten() # (262144,)<-[1, 1, 512, 512]
     gt_1D = np.array(gt.cpu()).flatten()
     # print("gt_1D",gt_1D.shape)
