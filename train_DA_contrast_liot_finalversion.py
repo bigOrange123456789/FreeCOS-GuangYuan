@@ -1,6 +1,6 @@
 # from __future__ import division
 import os
-import argparse
+# import argparse
 
 import torch
 import torch.nn as nn
@@ -21,14 +21,14 @@ from lib.Trainer import Trainer
 
 def main():
     # os.getenv('debug'): None
-    if os.getenv('debug') is not None:
-        is_debug = os.environ['debug']
-    else:
-        is_debug = False
-    parser = argparse.ArgumentParser()
+    # if os.getenv('debug') is not None:
+    #     is_debug = os.environ['debug']
+    # else:
+    #     is_debug = False
+    # parser = argparse.ArgumentParser()
     os.environ['MASTER_PORT'] = '169711' #“master_port”的意思是主端口
 
-    args = parser.parse_args()
+    # args = parser.parse_args()
     cudnn.benchmark = True #benchmark的意思是基准
     # set seed
     seed = config.seed  # 12345
