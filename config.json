@@ -20,7 +20,7 @@
         "type":"cos"
     },
     "adv":{
-        "weight": 0,
+        "weight": 0.25,
         "weight-old": 0.25,
         "damping":"constant",
         "damping-note":["reduce","默认衰减"]
@@ -79,7 +79,7 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "logname":"./FreeCOS48_1",
-    "notes":"48_1: 将EMA与CONS想分离",
-    "version": "2025.02.28--18:27"
+    "logname":"./FreeCOS48",
+    "notes":"48: 将EMA与CONS想分离",
+    "version": "2025.03.02--16:58"
 }
