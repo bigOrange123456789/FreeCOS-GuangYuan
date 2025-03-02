@@ -1,6 +1,6 @@
 import json
-with open('test.json', 'r', encoding='utf-8') as file:
-    info = json.load(file)
+with open('test_config.json', 'r', encoding='utf-8') as file:
+    info = json.load(file)["fileList"]
 
 import pandas as pd
 import matplotlib.pyplot as plt

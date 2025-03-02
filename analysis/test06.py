@@ -280,8 +280,9 @@ def progressFile05(name,color):
     df = pd.read_csv(path+'/val_train_f1.csv',nrows=nrows)
     print("name:",name)
 
-    max_indicator_epoch = df.loc[df["f1"].idxmax(), 'epoch']
-    print("f1最大时epoch为:",max_indicator_epoch)
+    indicatorFlagMax=info_config["indicatorFlagMax"]
+    max_indicator_epoch = df.loc[df[indicatorFlagMax].idxmax(), 'epoch']
+    print(indicatorFlagMax+"最大时epoch为:",max_indicator_epoch)
     result = df[df['epoch'] == max_indicator_epoch]
     
     config0={}
