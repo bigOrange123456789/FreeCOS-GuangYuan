@@ -12,8 +12,8 @@
         "damping-note":["constant","恒定"]
     },
     "cons":{
-        "weight": 5.0,
-        "weight-note": 0.5,
+        "weight": 0,
+        "weight-note": [0.5,0.5],
         "damping":"constant",
 
         "useEMA":false,
@@ -26,7 +26,7 @@
         "damping-note":["reduce","默认衰减"]
     },
     "contrast":{
-        "weight": 0,
+        "weight": 0.04,
         "weight-note": 0.04,
         "damping":"constant",
         "damping-note":["constant","默认恒定"]
@@ -80,6 +80,6 @@
         "label":"fake_gtvessel_width"
     },
     "logname":"./FreeCOS48",
-    "notes":"48: 将EMA与CONS想分离",
-    "version": "2025.03.02--16:58"
+    "notes":"51: 希望获取最佳性能",
+    "version": "2025.03.03--14:47"
 }
