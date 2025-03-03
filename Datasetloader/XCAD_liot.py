@@ -312,13 +312,15 @@ class DatasetXCAD_aug(data.Dataset):
         p = np.random.choice([0, 1])  # 随机选择一个元素（0或1）
         transform_hflip = transforms.RandomHorizontalFlip(p)  # 定义一个水平翻转操作，p 是这个转换操作被应用的概率。
         img = transform_hflip(img)
-        img_Perturbation = transform_hflip(img_Perturbation)
+        if not (img_Perturbation is None):
+            img_Perturbation = transform_hflip(img_Perturbation)
         anno_mask = transform_hflip(anno_mask)  # 若图片翻转，则标签也进行翻转
 
         p = np.random.choice([0, 1])
         transform_vflip = transforms.RandomVerticalFlip(p)  # 垂直翻转
         img = transform_vflip(img)
-        img_Perturbation = transform_vflip(img_Perturbation)
+        if not (img_Perturbation is None):
+            img_Perturbation = transform_vflip(img_Perturbation)
         anno_mask = transform_vflip(anno_mask)
 
         # 2.旋转 #img = self.to_tensor(img)
@@ -332,7 +334,8 @@ class DatasetXCAD_aug(data.Dataset):
                     为False，则旋转后的图像会被裁剪以适应原始图像尺寸，可能会导致图像的一部分被裁剪掉。
             '''
             img = transform_rotate(img)
-            img_Perturbation = transform_rotate(img_Perturbation)
+            if not (img_Perturbation is None):#如果扰动图像不是空
+                img_Perturbation = transform_rotate(img_Perturbation)
             anno_mask = transform_rotate(anno_mask)
 
         # 3.调色（亮度、对比度、饱和度）
