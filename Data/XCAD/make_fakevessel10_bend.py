@@ -13,7 +13,8 @@ config_XCAD={
     "resultSize":{
         "w":512,
         "h":512
-    }
+    },
+    "ratioMin":2.5/100
 }
 config_XCAD_Test={
     "inferenceSize":{
@@ -23,7 +24,8 @@ config_XCAD_Test={
     "resultSize":{
         "w":512,
         "h":512
-    }
+    },
+    "ratioMin":2.5/100
 }
 config_STARE={
     "inferenceSize":{
@@ -33,7 +35,8 @@ config_STARE={
     "resultSize":{
         "w":700,
         "h":605
-    }
+    },
+    "ratioMin":2.5/100
 }
 config_STARE_Test={
     "inferenceSize":{
@@ -98,48 +101,13 @@ class Img():
         # exit(0)
         
         # 计算矩形框的边界
-        # x_start = center_x - half_size_w # x_start = center_x - half_size
-        # y_start = center_y - half_size_h # y_start = center_y - half_size
-        # x_end = center_x + half_size_w # x_end = center_x + half_size
-        # y_end = center_y + half_size_h # y_end = center_y + half_size
         x_start = center_x - half_size_h # x_start = center_x - half_size
         y_start = center_y - half_size_w # y_start = center_y - half_size
         x_end = center_x + half_size_h # x_end = center_x + half_size
         y_end = center_y + half_size_w # y_end = center_y + half_size
-        # if size_h%2>0:#为奇数
-        #     if x_start-1>=0:
-        #         x_start -= 1
-        #     elif x_end+1<self.image.shape[2]: #config["inferenceSize"]
-        #         x_end +=1
-        # if size_w%2>0:#为奇数
-        #     if y_start-1>=0:
-        #         y_start -= 1
-        #     elif y_end+1<self.image.shape[1]: #config["inferenceSize"]
-        #         y_end +=1
-        
-        # 检查边界是否超出图像范围，并调整中心点
-        # if x_start < 0 or y_start < 0 or x_end >= width or y_end >= height:
-        #     print("边界超出图像范围")
-        #     if x_start < 0:
-        #         x_start = 0
-        #         x_end = size_h # x_end = size
-        #     if y_start < 0:
-        #         y_start = 0
-        #         y_end = size_w # y_end = size
-        #     if x_end > width:
-        #         x_end = width
-        #         x_start = width - size_h # x_start = width - size
-        #     if y_end > height:
-        #         y_end = height
-        #         y_start = height - size_w # y_start = height - size
+
         if x_start < 0 or y_start < 0 or x_end > height or y_end > width:
             print("边界超出图像范围")
-            print("size_h",size_h) # 305
-            print("size_w",size_w) # 350
-            print("x_start",x_start)
-            print("x_end",x_end)
-            print("y_start",y_start)
-            print("y_end",y_end)
             if x_start < 0:
                 x_start = 0
                 x_end = size_h # x_end = size
@@ -152,29 +120,13 @@ class Img():
             if y_end > width:
                 y_end = width
                 y_start = width - size_w # y_start = height - size
-            print("x_start2",x_start)
-            print("x_end2",x_end)
-            print("y_start2",y_start)
-            print("y_end2",y_end)
-            print("x_end-x_start:",x_end-x_start)
-            print("y_end-y_start:",y_end-y_start)
-            # exit(0)
-        print("3-x_start",x_start)
-        print("3-x_end",x_end)
-        print("3-y_start",y_start)
-        print("3-y_end",y_end)
-        print("3-x_end-x_start:",x_end-x_start)
-        print("3-y_end-y_start:",y_end-y_start)
         # 提取矩形框
         # self.image = self.image[y_start:y_end, x_start:x_end]
         # self.thickness = self.thickness[y_start:y_end, x_start:x_end]
-        print("a,self.image",self.image.shape,[width,height])
+        # print("a,self.image",self.image.shape,[width,height])
         self.image = self.image[x_start:x_end, y_start:y_end]
         self.thickness = self.thickness[x_start:x_end, y_start:y_end]
-        print("b,self.image",self.image.shape)
-        # print("y_start, y_end, x_start, x_end:", y_start, y_end, x_start, x_end)
-        # print("self.image[y_start:y_end, x_start:x_end]",self.image[y_start:y_end, x_start:x_end].shape)
-        # print("self.image[x_start:x_end, y_start:y_end]",self.image[x_start:x_end, y_start:y_end].shape)
+        # print("b,self.image",self.image.shape)
         
         return self.image
     
@@ -202,7 +154,7 @@ class Img():
         ratio = self.calculate_pixel_ratio() 
         # print("连通情况为：",connected) 
         # print("calculate_pixel_ratio",ratio) 
-        if (connected and ratio>2.5/100.) or TestFlag: 
+        if (connected and ratio>config["ratioMin"]) or TestFlag: 
             if True:
                 pic = Image.fromarray(self.image, mode='L')  # 'L' 表示灰度图像 
                 pic.save(output_path) 
