@@ -60,7 +60,7 @@
     "datapathTrain":{
         "img_unsup":"img",
         
-        "bg_3D":"bg2",
+        "bg_3D":"bg3",
         "vessel_3D":"fake_grayvessel_bend",
         "label_3D":"fake_gtvessel_bend",
 
@@ -68,18 +68,7 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "datapathTrain-note":{
-        "img_unsup":"img",
-        
-        "bg_3D":"bg_lzc",
-        "vessel_3D":"vessel3D_lzc",
-        "label_3D":"fake_gtvessel_width",
-
-        "bg":"img",
-        "vessel":"fake_grayvessel_width",
-        "label":"fake_gtvessel_width"
-    },
-    "logname":"./FreeCOS44_2",
-    "notes":"44_2: 首次测试stare数据集",
+    "logname":"./FreeCOS52_2",
+    "notes":"52_2: 血管区间振幅为0",
     "version": "2025.03.01--00:47"
 }

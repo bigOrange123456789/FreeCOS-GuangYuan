@@ -211,11 +211,19 @@ class DeVessel():
         # mutated fft of source
         if False:
             fft_0 = amp * np.exp( 1j * np.zeros_like(pha) )
-        else:
+        elif False:
             # print(pha.shape,"shape2")
             # exit(0)
             pha_noise = self.addNoise(pha)
             fft_0 = amp * np.exp( 1j * pha_noise )
+        else:
+            if self.gamma==0:#XCAD
+                fft_0 = amp * np.exp( 1j * pha*0 )
+            elif self.gamma==1:#STARE
+                fft_0 = amp*0 #* np.exp( 1j * pha )
+            else:
+                print("gamma数值非法!")
+                exit(0)
 
         # 逆傅里叶变换 # get the mutated image
         src_0 = np.fft.ifft2( fft_0, axes=(-2, -1) )
