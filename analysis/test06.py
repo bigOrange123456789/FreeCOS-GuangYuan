@@ -363,7 +363,7 @@ if True:
         # 在每个柱形上方显示数值
         for bar in bar_container:
             height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width() / 2, height, f'{height:.2f}',
+            ax.text(bar.get_x() + bar.get_width() / 2, height, f'{height:.3f}',
                     ha='center', va='bottom', fontsize=8)
         ax.set_title(metric)
         ax.set_xlabel('Experiment')

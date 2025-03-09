@@ -12,8 +12,8 @@
         "damping-note":["constant","恒定"]
     },
     "cons":{
-        "weight": 0,
-        "weight-note": [0.5,0.5],
+        "weight": 5.0,
+        "weight-note": [0.5,5.0],
         "damping":"constant",
 
         "useEMA":false,
@@ -80,6 +80,6 @@
         "label":"fake_gtvessel_width"
     },
     "logname":"./FreeCOS48",
-    "notes":"51: 希望获取最佳性能",
+    "notes":"53: 在51的基础上添加余弦一致性,希望获取最佳性能",
     "version": "2025.03.03--14:47"
 }
