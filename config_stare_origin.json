@@ -1,7 +1,7 @@
 {
     "seed": 12345,
-    "batch_size": 15,
-    "batch_size_val": 14,
+    "batch_size": 22,
+    "batch_size_val": 22,
     
     "seg":{
         "weight_dice": 1.0,
@@ -55,13 +55,12 @@
     "onlyMainObj": true,
 
     "inputType": "LIOT",
-    "inputType-note": ["LIOT","Origin","NewLIOT","NewLIOT2"],
 
     "datapath": "../DataSet-images/STARE_sim",
     "datapathTrain":{
-        "img_unsup":"img_color",
+        "img_unsup":"img",
         
-        "bg_3D":"bg2",
+        "bg_3D":"bg3",
         "vessel_3D":"fake_grayvessel_bend",
         "label_3D":"fake_gtvessel_bend",
 
@@ -69,18 +68,7 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "datapathTrain-note":{
-        "img_unsup":"img",
-        
-        "bg_3D":"bg_lzc",
-        "vessel_3D":"vessel3D_lzc",
-        "label_3D":"fake_gtvessel_width",
-
-        "bg":"img",
-        "vessel":"fake_grayvessel_width",
-        "label":"fake_gtvessel_width"
-    },
-    "logname":"./FreeCOS44_2",
-    "notes":"44_2: 使用原始的FreeCOS处理stare数据集",
-    "version": "2025.03.03--13:57"
+    "logname":"./FreeCOS52_2",
+    "notes":"53_2: 期望看到原版的在测试机的推理inference输出效果",
+    "version": "2025.03.10--13:49"
 }
