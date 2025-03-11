@@ -16,7 +16,8 @@ config_XCAD={
     },
     "ratioMin":2.5/100,
     "lengthMin":0,
-    "iterationMin":1#迭代次数为1次或2次
+    "iterationMin":1,#迭代次数为1次或2次
+    "Length_range" : (90, 100)#初始长度范围
 }
 config_XCAD_Test={
     "inferenceSize":{
@@ -61,15 +62,19 @@ config_30XCA={
         "w":512,
         "h":512
     },
-    "ratioMin":0,
+    "ratioMin":2.5/100,
     "lengthMin":0,
-    "iterationMin":1#迭代次数为2次或3次
+    "iterationMin":1,#迭代次数为2次或3次
+
+    # "Length_range" : (50, 50)#初始长度范围
+    "Length_range" : (40, 40)#初始长度范围
+
 }
 config = config_30XCA
-TestFlag = False #是否快速生成低质量图片
+TestFlag = False # True # False #是否快速生成低质量图片
 #######################   开始创建一个numpy对象的图片   #########################
 class Img():
-    def __init__(self, width=1024, height = 1024):
+    def __init__(self, width=(1024+256), height = (1024+128)):
         self.length=0#总长度
         # if TestFlag:
         #     width=552
@@ -98,13 +103,17 @@ class Img():
             center_x, center_y: 图案的中心点坐标。
         """
         # 找到所有非零像素点的坐标
-        print(type(self.image),np.sum(self.image))
+        # print(type(self.image),np.sum(self.image))
         y_coords, x_coords = np.nonzero(self.image)
         
         # 计算中心点
         print("x_coords",x_coords)
-        center_x = int(np.mean(x_coords))
-        center_y = int(np.mean(y_coords))
+        def getCenter(x):
+            center=(np.max(x)-np.min(x))/2
+            center=(np.mean(x_coords)+center)/2
+            return int(center)
+        center_x = getCenter(x_coords) # int(np.mean(x_coords))
+        center_y = getCenter(y_coords) # int(np.mean(y_coords))
         
         return center_x, center_y
     
@@ -142,7 +151,9 @@ class Img():
         # self.image = self.image[y_start:y_end, x_start:x_end]
         # self.thickness = self.thickness[y_start:y_end, x_start:x_end]
         # print("a,self.image",self.image.shape,[width,height])
+        self.imageOld = self.image
         self.image = self.image[x_start:x_end, y_start:y_end]
+        self.thicknessOld = self.thickness
         self.thickness = self.thickness[x_start:x_end, y_start:y_end]
         # print("b,self.image",self.image.shape)
         
@@ -159,12 +170,13 @@ class Img():
     
     def getLight(self):
         light0 = 1
-        delta = random.uniform(0.009, 0.012) # random.uniform(0.009, 0.0012) # delta = 0.01 # 0.1 # 0.02 # 0.01 #感觉这里应该是一个错误的BUG
+        # delta = random.uniform(0.009, 0.012) # random.uniform(0.009, 0.0012) # delta = 0.01 # 0.1 # 0.02 # 0.01 #感觉这里应该是一个错误的BUG
+        delta = random.uniform(0.027, 0.036)
         self.light=light0*np.exp(-1*self.thickness*delta)
         return self.light
 
     def save(self, output_path = "output_image.png", output_path2 = "output_image2.png"): # 保存图像 
-        print(self.length)
+        # print(self.length)
         if not TestFlag: # if True: # 
             center_x, center_y = self.find_center_of_pattern() 
             self.extract_rectangle( center_x, center_y) 
@@ -174,11 +186,13 @@ class Img():
         # print("连通情况为：",connected) 
         # print("calculate_pixel_ratio",ratio) 
         if (connected and ratio>config["ratioMin"] and self.length>config["lengthMin"]) or TestFlag: 
-            if True:
-                pic = Image.fromarray(self.image, mode='L')  # 'L' 表示灰度图像 
-                pic.save(output_path) 
+            pic = Image.fromarray(self.image, mode='L')  # 'L' 表示灰度图像 
+            pic.save(output_path) 
+            if False:    
+                pic2 = Image.fromarray(self.imageOld, mode='L')  # 'L' 表示灰度图像 
+                pic2.save(output_path+".old.png") 
             light=self.getLight()
-            print('sum',np.sum(light))
+            # print('sum',np.sum(light))
             # pic = Image.fromarray((255.*light).astype(np.int32), mode='L')  # 'L' 表示灰度图像 
             # pic2 = Image.fromarray((self.thickness).astype('uint8'), mode='L')  # 'L' 表示灰度图像 
             pic2 = Image.fromarray((255*light).astype('uint8'), mode='L')  # 'L' 表示灰度图像 
@@ -186,8 +200,13 @@ class Img():
             print(f"图像已保存到 {output_path2}") 
             return True 
         else: 
+            if ratio<config["ratioMin"]:
+                print("画面占比太低")
             if  self.length<config["lengthMin"]:
                 print("总长度太短")
+            if not connected:
+                print("不连通")
+
             print("图片没有保存") 
             return False 
 
@@ -308,9 +327,12 @@ class Img():
         k[valid_k_mask] = normal[valid_k_mask] / new_length0
 
         be = np.zeros_like(k)
+        # if width>2:#宽度太低会弯曲后会中断
         valid_bend = (k > 0) & (k < 1)
         # 假设bendf.get已向量化，或使用np.vectorize
         be[valid_bend] = bendf.get(k[valid_bend]) * bendWeght
+        # if width<4:#细线太弯容易中断
+        #     be[valid_bend]=be[valid_bend]*0.25
 
         center_x2 = center_x + be * normal_x
         center_y2 = center_y + be * normal_y
@@ -351,7 +373,7 @@ class Img():
 
 
 class LSystem_vessel():
-    def __init__(self, axiom, rules, rules_2, rules_3, theta=0, width=5, dtheta_1=40, dtheta_2=30, start=(-350,0), length=80,iteration=3,width_1=0.79, width_2 = 0.5):
+    def __init__(self, axiom, rules, rules_2, rules_3, theta=0, width=5, dtheta_1=40, dtheta_2=30, start=(-350,0), length=80,iteration=3,lamda_1=0.79, lamda_2 = 0.5):
         self.sentence = axiom   # 基本规则 # axiom的本义是原理、公理
         self.rules = rules      # 规则1
         self.relus_2 = rules_2  # 规则2
@@ -369,8 +391,8 @@ class LSystem_vessel():
         self.length = length #长度
         self.positions = []
         self.start = start
-        self.lamda_1 = width_1 #
-        self.lamda_2 = width_2
+        self.lamda_1 = lamda_1 #(弃用)
+        self.lamda_2 = lamda_2 #(使用)分叉后长度的变化
 
         self.x, self.y = start # 初始位置
         self.img=Img() #lzc
@@ -455,8 +477,10 @@ class LSystem_vessel():
                 position = self.positions.pop()
                 self.x, self.y, self.theta, self.width = position['x'], position['y'], position['theta'], position['width']
                 flag = False
-            if self.width<2:#宽度不能低于两像素
-                self.width = 2 #self.width = 1.5
+            # if self.width<2:#宽度不能低于两像素
+            #     self.width = 2 #self.width = 1.5
+            if self.width<4:
+                self.width = 3.5 #self.width = 1.5
 
 # 所谓的规则语句，就是将字符F替换为由F组成的字符串
 rules = {"F":"F-F[+F-F][-F+F]"} # 这应该是类似json格式的对象
@@ -468,6 +492,11 @@ rules = {"F":"F-F[+F-F][F-F+F]"} #添加了3分叉
 rules_2 = {"F":"F+F[+F[+F]-F]-F+F[+F-F[+F]-F]"} # 规则是通过字符串来定义的
 rules_3 = {"F":"F[+F]+F[+F]+F[+F]"}
 rules_4 = {"F":"F-F-F[+F-F][-F-F]F+F"}
+
+rules   = {"F":"F[-F+F-F][F-F+F]"} #添加了3分叉
+rules_2 = {"F":"[F+F+F[+F]-F]-F+F[+F-F[+F]-F]"} # 规则是通过字符串来定义的
+rules_3 = {"F":"F[+F]+F[+F]+F[+F]"}
+rules_4 = {"F":"F[-F+F-F][-F-F]F+F"}
 
 path = "[+F-F][-F]" #path变量应该是目前使用的规则
 print('path:',path)
@@ -494,6 +523,10 @@ Start_position_x = (-128, -64) # 初始位置的横坐标的范围
 Start_position_x2 = (-256, 0)
 Start_position_y = (0, 0) # 初始位置的纵坐标坐标为-100
 
+Start_position_x = (-256, -256) # 初始位置的横坐标的范围
+Start_position_x2 = (-256, -256)
+Start_position_y = (0, 0) # 初始位置的纵坐标坐标为-100
+
 
 
 Ratio_LW = (0.7,1) #宽度的分支衰减率
@@ -507,6 +540,7 @@ Width = (20,30) #【LZC:我的优化】
 # Length_range = (90, 150) # init range 长度的变化范围
 Length_range = (90, 90) #【LZC:我的优化】
 Length_range = (90, 100) #【LZC:我的优化】
+Length_range = (70, 70) #
 # Length_range = (90, 150) # init range 长度的变化范围
 # 实际上最大宽度为14像素左右
 i=0
@@ -536,6 +570,7 @@ while i<Num_image:
     init_length = np.random.randint(Length_range[0],Length_range[1]+1)
     # iteration = np.random.randint(1,3) # 迭代次数为1或2次
     iteration = np.random.randint(config["iterationMin"],config["iterationMin"]+2) # 迭代次数为2或3次
+    iteration = config["iterationMin"] + 1
     #iteration = 1
 
     Ratio_lw_1 = np.random.uniform(Ratio_LW[0], Ratio_LW[1])
@@ -550,20 +585,20 @@ while i<Num_image:
         x_position = np.random.randint(Start_position_x2[0],Start_position_x2[1]+1)
     y_position = np.random.randint(Start_position_y[0],Start_position_y[1]+1)
 
-    system = LSystem_vessel(path, r1, r2, r3, theta=init_theta, width=init_width, dtheta_1=dtheta_1, dtheta_2=dtheta_2, start=(x_position, y_position),length=init_length, iteration=iteration, width_1=Ratio_lw_1, width_2=Ratio_lw_2)
+    system = LSystem_vessel(path, r1, r2, r3, theta=init_theta, width=init_width, dtheta_1=dtheta_1, dtheta_2=dtheta_2, start=(x_position, y_position),length=init_length, iteration=iteration, lamda_1=Ratio_lw_1, lamda_2=Ratio_lw_2)
     sentence=system.generate()
     if len(sentence)<20:
         print("sentence is too short (len="+str(len(sentence))+")",sentence)
         continue
     system.draw()
-    # saved=system.img.save(
-    #     "./fake_very_smalltheta_label_1621/"+str(i)+'.png',
-    #     "./fake_very_smalltheta_1621/"+str(i)+'.png'
-    #     )
     saved=system.img.save(
-        "./fake_very_smalltheta/"+str(i)+'_label.png',
-        "./fake_very_smalltheta/"+str(i)+'.png'
+        "./vessel_3D/"+str(i)+'.png',
+        "./label_3D/"+str(i)+'.png'
         )
+    # saved=system.img.save(
+    #     "./fake_very_smalltheta/"+str(i)+'_label.png',
+    #     "./fake_very_smalltheta/"+str(i)+'.png'
+    #     )
     if saved:
         i=i+1
     # exit(0)
