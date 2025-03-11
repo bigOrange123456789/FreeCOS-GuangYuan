@@ -305,6 +305,15 @@ config_XCAD={
     "in":"img",
     "out":"bg"
 }
+config_30XCA={
+    "alpha":10/512, 
+    "beta":100/512,
+    "gamma":0,
+
+    "root":"../../../DataSet-images/30XCA/train/",
+    "in":"img",
+    "out":"bg"
+}
 config_XTARE={
     "alpha":10/700, 
     "beta":200/700,
@@ -315,7 +324,7 @@ config_XTARE={
     "out":"bg"
 }
 def run():
-    config=config_XTARE
+    config=config_30XCA
     devessel = DeVessel(config)
     root=config["root"]
     inPath = os.path.join(root, config["in"])

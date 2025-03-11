@@ -12,7 +12,6 @@ def calAUC(pred,gt):
     原文链接：https://blog.csdn.net/qq_46020653/article/details/119613712
     '''
     #get 1-D
-    gt = torch.where(gt == 0, 0.0, 1.0)
     pred_1D = np.array(pred.cpu()).flatten() # (262144,)<-[1, 1, 512, 512]
     gt_1D = np.array(gt.cpu()).flatten()
     # print("gt_1D",gt_1D.shape)
@@ -123,6 +122,7 @@ def compute_allXCAD(pred, gt):
     return f1_score * 100, precision * 100, recall * 100, Sp * 100, Acc * 100, jc_score *100
 
 def compute_allRetinal(pred, pred_con, gt):
+    gt = torch.where(gt < 0.5, 0.0, 1.0)
     """
     input:
         pred,     #预测概率
