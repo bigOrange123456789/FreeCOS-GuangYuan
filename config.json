@@ -26,7 +26,7 @@
         "damping-note":["reduce","默认衰减"]
     },
     "contrast":{
-        "weight": 0.04,
+        "weight": 0,
         "weight-note": 0.04,
         "damping":"constant",
         "damping-note":["constant","默认恒定"]
@@ -45,7 +45,7 @@
     "dePhase":0,
 
     "ASL": {
-        "gamma_neg":0, 
+        "gamma_neg":1, 
         "gamma_pos":0
     },
 
@@ -79,7 +79,7 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "logname":"./FreeCOS48",
-    "notes":"53: 在51的基础上添加余弦一致性,希望获取最佳性能",
+    "logname":"./FreeCOS54",
+    "notes":"54: 测试ASL是否有效",
     "version": "2025.03.03--14:47"
 }
