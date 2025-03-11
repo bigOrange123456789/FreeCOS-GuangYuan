@@ -22,7 +22,7 @@
     "adv":{
         "weight": 0.25,
         "weight-old": 0.25,
-        "damping":"constant",
+        "damping":"reduce",
         "damping-note":["reduce","默认衰减"]
     },
     "contrast":{
@@ -45,7 +45,7 @@
     "dePhase":0,
 
     "ASL": {
-        "gamma_neg":1, 
+        "gamma_neg":0, 
         "gamma_pos":0
     },
 
@@ -79,7 +79,7 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "logname":"./FreeCOS54",
-    "notes":"54: 测试ASL是否有效",
-    "version": "2025.03.03--14:47"
+    "logname":"./FreeCOS55",
+    "notes":"55: 测试对抗下降是否有效",
+    "version": "2025.03.11--20:39"
 }
