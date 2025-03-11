@@ -26,7 +26,7 @@
         "damping-note":["reduce","默认衰减"]
     },
     "contrast":{
-        "weight": 0.04,
+        "weight": 0,
         "weight-note": 0.04,
         "damping":"constant",
         "damping-note":["constant","默认恒定"]
@@ -68,7 +68,7 @@
         "vessel":"fake_grayvessel_bend",
         "label":"fake_grayvessel_bend"
     },
-    "logname":"./FreeCOS54_3",
-    "notes":"54_3: 首次测试30XCA数据集",
+    "logname":"./FreeCOS55_3",
+    "notes":"55_3: 测试不用对比学习的效果",
     "version": "2025.03.11--19:45"
 }
