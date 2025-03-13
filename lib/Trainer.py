@@ -323,14 +323,15 @@ class Trainer():
 
         with torch.no_grad():  # 禁用梯度计算
             weight_mask = gts.clone().detach()
-            weight_mask[weight_mask == 0] = 0.1  # 值为0的元素设为0.1
-            weight_mask[weight_mask == 1] = 1  # 值为1的元素保持不变
+            weight_mask[weight_mask == 0] = config.ASL["mask_neg"]#0.1  # 值为0的元素设为0.1
+            weight_mask[weight_mask == 1] = config.ASL["mask_pos"]#1  # 值为1的元素保持不变
             # 血管区域太小，背景区域太大。因此分别给这两个区域使用了不同的权重。
             if True:  # if config.ASL:
                 criterion_bce = BCELoss_lzc(
                     weight=weight_mask,
-                    gamma_pos=config.gamma_pos,
-                    gamma_neg=config.gamma_neg)
+                    gamma_pos=config.ASL["gamma_pos"],#config.gamma_pos,
+                    gamma_neg=config.ASL["gamma_neg"],#config.gamma_neg
+                    )
             else:
                 criterion_bce = nn.BCELoss(weight=weight_mask)
 

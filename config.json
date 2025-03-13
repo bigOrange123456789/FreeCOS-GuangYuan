@@ -6,8 +6,8 @@
     "seg":{
         "weight_dice": 1.0,
         "weight_dice-note": 1.0,
-        "weight_ce"  : 3.0,
-        "weight_ce-note"  : 0.1,
+        "weight_ce"  : 10.0,
+        "weight_ce-note"  : [0.1,3.0],
         "damping":"constant",
         "damping-note":["constant","恒定"]
     },
@@ -45,8 +45,11 @@
     "dePhase":0,
 
     "ASL": {
+        "gamma_pos":0,
         "gamma_neg":0, 
-        "gamma_pos":0
+        "mask_pos":1,
+        "mask_neg":0.1,
+        "old":[0,0,1,0.1]
     },
 
     "marginInfoNCE": false,
@@ -80,6 +83,6 @@
         "label":"fake_gtvessel_width"
     },
     "logname":"./FreeCOS55",
-    "notes":"55: 测试对抗下降是否有效",
-    "version": "2025.03.11--20:39"
+    "notes":"56: 测试CE的最佳权重",
+    "version": "2025.03.13--15:39"
 }

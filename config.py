@@ -81,10 +81,10 @@ C.cps_weight = 6
 C.vessel3D = C_["vessel3D"] #使用合成的3D血管/使用合成的2D血管
 C.dePhase=C_["dePhase"]#将合成的3D血管添加到背景图之前，需要对背景图去噪声(傅里叶相位) #{0不去噪，1去傅里叶相位，2去傅里叶相位+去对称}
 #2.是否使用不平衡损失
-C.ASL = True #C_["ASL"] #不平衡损失/加权BCE
+C.ASL = C_["ASL"]#True #C_["ASL"] #不平衡损失/加权BCE
 # gamma_neg=0, gamma_pos=0 的时候应该就相当于C.ASL = False
-C.gamma_neg=C_["ASL"]["gamma_neg"]
-C. gamma_pos=C_["ASL"]["gamma_pos"]
+# C.gamma_neg=C_["ASL"]["gamma_neg"]
+# C. gamma_pos=C_["ASL"]["gamma_pos"]
 #3.是否使用大间隔对比学习
 C.marginInfoNCE = C_['marginInfoNCE']
 #4.是否使用伪标签机制
