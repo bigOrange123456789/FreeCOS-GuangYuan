@@ -46,8 +46,8 @@ def FDA_source_to_target_np(src_img, trg_img, L=0.1):
     trg_img_np = trg_img  # .cpu().numpy()
 
     # get fft of both source and target
-    fft_src_np = np.fft.fft2(src_img_np, axes=(-2, -1))
-    fft_trg_np = np.fft.fft2(trg_img_np, axes=(-2, -1))
+    fft_src_np = np.fft.fft2(src_img_np, axes=(-2, -1))#合成图片
+    fft_trg_np = np.fft.fft2(trg_img_np, axes=(-2, -1))#真实图片
 
     # extract amplitude and phase of both ffts
     amp_src, pha_src = np.abs(fft_src_np), np.angle(fft_src_np)
@@ -163,7 +163,7 @@ class DatasetXCAD_aug(data.Dataset):
                 # print("anno_mask",type(anno_mask))
                 # exit(0)
             else:  # 之前的获取2D血管数据的代码
-                img, anno_mask, org_img_size = self.load_frame_fakevessel_gaussian(img_name,
+                img, anno_mask, org_img_size, img_Perturbation = self.load_frame_fakevessel_gaussian(img_name,
                                                                                    background_name)  # (合成图像、合成标签)<-(合成血管图、真实造影图)
         elif self.supervised == 'supervised' and self.split != 'train':  # 有监督的验证
             img, anno_mask, org_img_size = self.load_frame_aff(img_name)  # 返回：造影图、人工标签、尺寸
@@ -434,6 +434,60 @@ class DatasetXCAD_aug(data.Dataset):
 
         # 1.FDA：在人工血管图中添加背景
         background_array = np.array(background_img)  # <numpy.ndarray> #将图片由'PIL.Image.Image'格式转化为numpy格式
+        im_src0 = np.asarray(img, np.float32)  # <PIL.Image.Image> -- <numpy.ndarray> #转换为NumPy，并且指定类型
+        def getPerturbationImg(im_src0):
+            im_src0 =im_src0/255.
+            random_float = random.uniform(1, 4) # 生成一个1到4之间的随机小数
+            im_src0 = im_src0 ** random_float
+            return im_src0*255.
+        if config.cons["weight"]>0:
+            im_src_perturbation =getPerturbationImg(im_src0)
+
+        def synthesisXCA(im_src):
+            im_trg = np.asarray(background_array, np.float32)  # 转化前后类型都是<numpy.ndarray> (512, 512)
+            im_src = np.expand_dims(im_src, axis=2)  # (512, 512) -> (512, 512, 1) #增加一个维度
+            im_trg = np.expand_dims(im_trg, axis=2)  # (512, 512) -> (512, 512, 1)
+
+            im_src = im_src.transpose((2, 0, 1))  # (512, 512, 1) -> (1, 512, 512)
+            im_trg = im_trg.transpose((2, 0, 1))  # 通过转置操作，改变维度顺序
+            src_in_trg = FDA_source_to_target_np(im_src, im_trg, L=0.3)  # 源图片是人工血管、目标图片是背景图
+            img_FDA = np.clip(src_in_trg, 0, 255.)  # 应该是限制像素的最小值为0、最大值为255
+            img_FDA = np.squeeze(img_FDA, axis=0)  # (1, 512, 512) -> (512, 512)
+            # 2.高斯模糊
+            img_FDA_guassian = cv2.GaussianBlur(img_FDA, (13, 13), 0)
+            # 3.添加点噪声
+            noise_map = np.random.uniform(-5, 5, img_FDA_guassian.shape)
+            img_FDA_guassian = img_FDA_guassian + noise_map
+            img_FDA_guassian = np.clip(img_FDA_guassian, 0, 255.)
+
+            return Image.fromarray((img_FDA_guassian).astype('uint8')).convert('L')
+            #img_FDA_Image = Image.fromarray((img_FDA_guassian).astype('uint8')).convert('L')
+            '''
+            img_FDA_guassian.astype('uint8')：转换为无符号8位整型（uint8）。
+                这是必要的，因为PIL库处理图像时通常期望图像数据是以这种格式存储的。
+                以确保所有的值都在0到255的范围内（uint8能表示的最小值和最大值）。
+            Image.fromarray(...)：这一步使用PIL库的Image.fromarray函数将NumPy数组转换为PIL图像对象。
+                这个函数接受一个NumPy数组作为输入，并返回一个PIL图像对象，该对象可以用于进一步的图像处理或保存。
+            .convert('L')：这一步将PIL图像对象转换为灰度图像。
+                如果原始图像已经是灰度图像，这一步则不会改变图像的内容。
+            '''
+        img_FDA_Image = synthesisXCA(im_src0)
+        if config.cons["weight"]>0:
+            img_FDA_Image_perturbation = synthesisXCA(im_src_perturbation)
+        else:
+            img_FDA_Image_perturbation = None
+
+        org_img_size = img.size
+
+        return img_FDA_Image, anno_mask, org_img_size, img_FDA_Image_perturbation
+
+    def load_frame_fakevessel_gaussian_old(self, img_name, background_name):
+        img = self.read_img(img_name)  # 读取人工血管图
+        anno_mask = self.read_mask(img_name)  # 读取人工血管的标签图
+        background_img = self.read_background(background_name)  # 背景图(真实造影图) # <PIL.Image.Image>
+
+        # 1.FDA：在人工血管图中添加背景
+        background_array = np.array(background_img)  # <numpy.ndarray> #将图片由'PIL.Image.Image'格式转化为numpy格式
         im_src = np.asarray(img, np.float32)  # <PIL.Image.Image> -- <numpy.ndarray> #转换为NumPy，并且指定类型
 
         im_trg = np.asarray(background_array, np.float32)  # 转化前后类型都是<numpy.ndarray> (512, 512)
@@ -483,6 +537,7 @@ class DatasetXCAD_aug(data.Dataset):
 
         return img_FDA_Image, anno_mask, org_img_size
 
+    
     def load_frame_fakevessel_3D(self, img_name, background_name):
 
         img = self.read_img_3D(img_name)  # 读取3D人工血管图

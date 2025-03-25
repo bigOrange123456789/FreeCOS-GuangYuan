@@ -21,11 +21,12 @@ indicatorFlagList = [
        'loss_contrast', 'loss_pseudo', 'loss_conn'] #'loss_adv.1', 'loss_contrast', 'loss_pseudo', 'loss_conn']
 
 config0={
-    'loss_seg_w':"r", 
+    'loss_dice':"r", 
+    'loss_cons_w':"m",
     'loss_adv_w':"g", 
     'loss_contrast_w':"b", 
-    'loss_pseudo_w':"m",
-    'loss_conn_w':"c" 
+    # 'loss_pseudo_w':"m",
+    # 'loss_conn_w':"c" 
 }
 # axsList = [ 
 #     axs[0,0],axs[0,1],axs[0,2],axs[0,3],axs[0,4],  
@@ -57,7 +58,7 @@ def extract_float_from_tensor_string(tensor_string):
 
 
 
-fileName="FreeCOS-GuangYuan32"
+fileName="FreeCOS-GuangYuan53"
 path="../logs/"+ fileName
 # 读取CSV文件
 if not os.path.exists(path+'/train_loss.csv'):
