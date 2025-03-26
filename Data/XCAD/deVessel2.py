@@ -218,7 +218,7 @@ class DeVessel():
             fft_0 = amp * np.exp( 1j * pha_noise )
         else:
             if self.gamma==0:#XCAD
-                fft_0 = amp * np.exp( 1j * pha*0 )
+                fft_0 = amp #* np.exp( 1j * pha*0 )
             elif self.gamma==1:#STARE
                 fft_0 = amp*0 #* np.exp( 1j * pha )
             else:
@@ -272,6 +272,39 @@ class DeVessel():
         img_FDA = np.squeeze(img_FDA,axis = 0) # (1, 512, 512) -> (512, 512)
 
         return img_FDA 
+    def deVessel4(self,img):
+            img = np.expand_dims(img, axis=2) # (512, 512) -> (512, 512, 1)
+            src_img_np = img.transpose((2, 0, 1)) # 通过转置操作，改变维度顺序
+
+            # get fft of both source and target
+            fft_src_np = np.fft.fft2(src_img_np, axes=(-2, -1))#合成图片
+
+            # extract amplitude and phase of both ffts
+            amp_src, pha_src = np.abs(fft_src_np), np.angle(fft_src_np)
+
+            # mutate the amplitude part of source with target
+            # amp_src_ = low_freq_mutate_np(amp_src, amp_trg, L=L)
+            pha_src = np.fft.fftshift( pha_src, axes=(-2, -1) )
+            _, h, w = pha_src.shape # h=512 w=512   
+            for i in range(h):
+                    for j in range(w):
+                        x=(i-h/2)/self.width
+                        y=(j-w/2)/self.height
+                        k = ( x**2 + y**2 )**0.5
+                        if k>self.alpha and k<self.beta : 
+                            pha_src[0,i,j]=0#a_src2[0,i,j]
+            pha_src = np.fft.ifftshift(pha_src, axes=(-2, -1))
+
+            # mutated fft of source
+            fft_src_ = amp_src * np.exp(1j * pha_src)
+
+            # get the mutated image
+            src_in_trg = np.fft.ifft2(fft_src_, axes=(-2, -1))
+            src_in_trg = np.real(src_in_trg)
+
+            img_FDA = np.clip(src_in_trg, 0, 255.)#应该是限制像素的最小值为0、最大值为255
+            img_FDA = np.squeeze(img_FDA,axis = 0) # (1, 512, 512) -> (512, 512)
+            return img_FDA
 
     def dePhase(self,img):
         img = np.expand_dims(img, axis=2) # (512, 512) -> (512, 512, 1)
@@ -302,7 +335,7 @@ config_XCAD={
     "gamma":0,
 
     "root":"../../../DataSet-images/XCAD_FreeCOS/train/",
-    "in":"img",
+    "in":"bg_lzc",
     "out":"bg"
 }
 config_30XCA={
@@ -324,7 +357,7 @@ config_XTARE={
     "out":"bg"
 }
 def run():
-    config=config_30XCA
+    config=config_XCAD
     devessel = DeVessel(config)
     root=config["root"]
     inPath = os.path.join(root, config["in"])

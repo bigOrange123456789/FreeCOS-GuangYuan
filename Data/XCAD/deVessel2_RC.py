@@ -218,7 +218,7 @@ class DeVessel():
             fft_0 = amp * np.exp( 1j * pha_noise )
         else:
             if self.gamma==0:#XCAD
-                fft_0 = amp * np.exp( 1j * pha*0 )
+                fft_0 = amp #* np.exp( 1j * pha*0 )
             elif self.gamma==1:#STARE
                 fft_0 = amp*0 #* np.exp( 1j * pha )
             else:
