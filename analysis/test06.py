@@ -315,6 +315,8 @@ def progressFile05(name,color):
         else:
             value = float(value)
         config0[i]=value
+    for i in ['Acc', 'Sp', 'f1', 'pr', 'recall', 'JC']:
+        config0[i]=config0[i]*0.01
     if False:
         if "AUC2" in result:
             value = result["AUC2"]

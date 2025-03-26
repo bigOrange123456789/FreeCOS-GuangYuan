@@ -20,7 +20,7 @@
         "type":"cos"
     },
     "adv":{
-        "weight": 0.25,
+        "weight": 0,
         "weight-old": 0.25,
         "damping":"constant",
         "damping-note":["reduce","默认衰减"]
@@ -41,7 +41,7 @@
         "type-note": ["ratio","entropy"]
     },
 
-    "vessel3D": false,
+    "vessel3D": true,
     "dePhase":0,
 
     "ASL": {
@@ -68,8 +68,8 @@
         "label_3D":"fake_gtvessel_bend",
 
         "bg":"img",
-        "vessel":"fake_grayvessel_bend",
-        "label":"fake_gtvessel_bend",
+        "vessel":"fake_grayvessel_width",
+        "label":"fake_gtvessel_width",
         "vessel-old":"fake_grayvessel_width",
         "label-old":"fake_gtvessel_width"
     },
@@ -84,7 +84,7 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "logname":"./FreeCOS59",
-    "notes":"59: 合成背景图的消融实验",
+    "logname":"./FreeCOS60",
+    "notes":"60: 对抗学习的消融实验",
     "version": "2025.03.26--01:19"
 }
