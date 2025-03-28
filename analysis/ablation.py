@@ -4,7 +4,7 @@ info_config = {
     "indicatorFlag-old":[
         "f1", "AUC", "pr", "recall", "Acc", "Sp", "JC"
     ],
-    "nrows":294,
+    "nrows":1000,
     "fileList":[
         ["FreeCOS-GuangYuan46","#4F81BD"],
         ["FreeCOS-GuangYuan58","#70AD47"],
@@ -16,8 +16,8 @@ info =info_config["fileList"]
 
 indicatorFlag=info_config["indicatorFlag"]#'f1'
 nrows = info_config["nrows"]
-indicatorFlagList = ['Dice', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
-assert indicatorFlag in indicatorFlagList
+# indicatorFlagList = ['Dice', 'f1', 'AUC', 'pr', 'recall', 'Acc', 'Sp', 'JC']
+# assert indicatorFlag in indicatorFlagList
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -60,7 +60,7 @@ def progressFile05(name,color):
     
 
     # for i in ['JC', 'f1',"Dice", 'recall', 'pr','Acc', 'Sp', 'AUC' ]:
-    for i in ['JC', 'f1',"Dice", 'recall', 'pr','Acc', 'Sp' ]:
+    for i in ['JC', 'f1',"Dice", 'pr','recall', 'Acc', 'Sp', 'AUC' ]:
         if i=="Dice":
             if "Dice2" in result:
                 value = result["Dice2"]
@@ -93,14 +93,15 @@ def progressFile05(name,color):
         elif name=="59":name="our w/o Syn-Bg"
         elif name=="57":name="our w/o 3D-Vessel"
     
-    config0={
+    config0={#这里还决定了排列顺序
         'JC':config0['JC'], 
         'F1':config0['f1'],
         "Dice":config0['Dice'],
-        'Sn':config0['recall'], 
         'Pr':config0['pr'],
+        'Sn':config0['recall'], 
+        'AUC':config0['AUC'], 
         'Acc':config0['Acc'], 
-        'Sp':config0['Sp'] 
+        'Sp':config0['Sp'] ,
     }
     config[name]={
         "data":config0,
@@ -120,7 +121,7 @@ def draw3(data):
     plt.figure(figsize=(12, 6))
 
     # 设置柱子的宽度和位置
-    bar_width = 0.22
+    bar_width = 0.23
     index = np.arange(len(metrics))
 
     # 绘制每个测试的柱状图
@@ -138,7 +139,7 @@ def draw3(data):
     plt.ylabel('Value')
     plt.title('Comparison of Metrics across Four Tests')
     plt.xticks(index + bar_width * (len(test_results) - 1) / 2, metrics)
-    plt.ylim(0.45, max(max(test_results)) + 0.1)  # 设置纵坐标起点为0.7
+    plt.ylim(0.49, max(max(test_results)) + 0.1)  # 设置纵坐标起点为0.7
     plt.legend()
 
     # 显示图形

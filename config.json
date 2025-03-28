@@ -20,7 +20,7 @@
         "type":"cos"
     },
     "adv":{
-        "weight": 0,
+        "weight": 0.25,
         "weight-old": 0.25,
         "damping":"constant",
         "damping-note":["reduce","默认衰减"]
@@ -63,7 +63,8 @@
     "datapathTrain":{
         "img_unsup":"img",
         
-        "bg_3D":"bg2",
+        "bg_3D":"bg_DEC_ND",
+        "bg_3D-old":"bg2",
         "vessel_3D":"fake_grayvessel_bend",
         "label_3D":"fake_gtvessel_bend",
 
@@ -84,7 +85,7 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "logname":"./FreeCOS60",
-    "notes":"60: 对抗学习的消融实验",
-    "version": "2025.03.26--01:19"
+    "logname":"./FreeCOS63",
+    "notes":"63: 使用同时破败振幅和相位的背景图的消融实验",
+    "version": "2025.03.27--11:43"
 }
