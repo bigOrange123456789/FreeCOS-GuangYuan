@@ -9,7 +9,9 @@ info_config = {
         ["FreeCOS-GuangYuan46","#4F81BD"],
         ["FreeCOS-GuangYuan58","#70AD47"],
         ["FreeCOS-GuangYuan59","m"],
+        ["FreeCOS-GuangYuan60","b"],
         ["FreeCOS-GuangYuan57","#F79646"]
+        
     ]
 }
 info =info_config["fileList"]
@@ -92,6 +94,7 @@ def progressFile05(name,color):
         elif name=="58":name="our w/o Consis"
         elif name=="59":name="our w/o Syn-Bg"
         elif name=="57":name="our w/o 3D-Vessel"
+        elif name=="60":name="our w/o adv"
     
     config0={#这里还决定了排列顺序
         'JC':config0['JC'], 
@@ -130,9 +133,16 @@ def draw3(data):
 
     # 在每个柱形上方显示数值
     if True:
+        # 设置字体样式
+        font = {
+            # 'family': 'serif',  # 字体族，如 'serif', 'sans-serif', 'cursive' 等
+            # 'color': 'darkred',  # 字体颜色
+            # 'weight': 'normal',  # 字体粗细，如 'normal', 'bold', 'light' 等
+            'size': 5  # 字体大小
+        }
         for i, result in enumerate(test_results):
             for j, value in enumerate(result):
-                plt.text(index[j] + i * bar_width, value + 0.0, f'{value:.3f}', ha='center', va='bottom')
+                plt.text(index[j] + i * bar_width, value + 0.0, f'{value:.4f}', ha='center', va='bottom', fontdict=font)
 
     # 设置图形标签和标题
     plt.xlabel('Metrics')
@@ -152,47 +162,6 @@ if True:
     # 提取指标名称和测试名称
 
     draw3(config)
-    exit(0)
 
-    # 获取所有指标名称
-    metrics = list(next(iter(config.values()))['data'].keys())
-
-    # 创建 2×4 的子图布局
-    fig, axs = plt.subplots(2, 4, figsize=(15, 8))  # 调整整体布局大小
-
-    # 遍历每个指标并绘制柱形图
-    for i, metric in enumerate(metrics):
-        row = i // 4  # 计算行索引
-        col = i % 4   # 计算列索引
-        ax = axs[row, col]  # 获取当前子图的轴对象
-
-        bars = []
-        labels = []
-        colors = []
-
-        for experiment, values in config.items():
-            bars.append(values['data'][metric])
-            labels.append(experiment)
-            colors.append(values['color'])
-
-        # ax.bar(labels, bars, color=colors)
-        # 绘制柱形图
-        bar_container = ax.bar(labels, bars, color=colors)
-        # 在每个柱形上方显示数值
-        for bar in bar_container:
-            height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width() / 2, height, f'{height:.3f}',
-                    ha='center', va='bottom', fontsize=8)
-        ax.set_title(metric)
-        ax.set_xlabel('Experiment')
-        ax.set_ylabel(metric)
-        ax.set_ylim(0, max(bars) * 1.1)  # 设置 y 轴范围，确保柱子不会被截断
-        ax.tick_params(axis='x', rotation=45)  # 旋转 x 轴标签，避免重叠
-
-    # 调整子图之间的间距
-    plt.tight_layout()
-
-    # 显示整个图形
-    plt.show()
 
     

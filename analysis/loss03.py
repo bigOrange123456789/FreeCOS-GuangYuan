@@ -148,7 +148,7 @@ if True:
     # progressFile("FreeCOS-GuangYuan21",'g')
     # progressFile("FreeCOS-GuangYuan22",'b')
     # progressFile("FreeCOS-GuangYuan17",'r')
-    progressFile("FreeCOS-GuangYuan17",'c')
+    progressFile("FreeCOS-GuangYuan46",'c')
     # progressFile("FreeCOS-GuangYuan17",'b')
     plt.title('y:'+indicatorFlag+' x:epoch')  # 设置标题
     plt.xlabel('Epoch')  # 设置横坐标标签

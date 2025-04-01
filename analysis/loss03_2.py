@@ -21,10 +21,10 @@ indicatorFlagList = [
        'loss_contrast', 'loss_pseudo', 'loss_conn'] #'loss_adv.1', 'loss_contrast', 'loss_pseudo', 'loss_conn']
 
 config0={
-    'loss_dice':"r", 
+    'loss_seg_w':"r", 
     'loss_cons_w':"m",
     'loss_adv_w':"g", 
-    'loss_contrast_w':"b", 
+    # 'loss_contrast_w':"b", 
     # 'loss_pseudo_w':"m",
     # 'loss_conn_w':"c" 
 }
@@ -56,16 +56,14 @@ def extract_float_from_tensor_string(tensor_string):
     else:
         raise ValueError(f"无法从字符串中提取数值: {tensor_string}")
 
-
-
-fileName="FreeCOS-GuangYuan53"
+fileName="FreeCOS-GuangYuan46"
 path="../logs/"+ fileName
 # 读取CSV文件
 if not os.path.exists(path+'/train_loss.csv'):
     print("文件不存在:",path+'/train_loss.csv')
     exit(0)
 # 读取CSV文件
-df = pd.read_csv(path+'/train_loss.csv')
+df = pd.read_csv(path+'/train_loss.csv',nrows=100)
     
 for indicatorFlag in config0:
     color = config0[indicatorFlag]
