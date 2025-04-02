@@ -539,10 +539,19 @@ class DatasetXCAD_aug(data.Dataset):
 
     
     def load_frame_fakevessel_3D(self, img_name, background_name):
-
         img = self.read_img_3D(img_name)  # 读取3D人工血管图
         # print("img",img.size)
         anno_mask = self.read_mask_3D(img_name)  # 读取人工血管的标签图
+        if config.datapathTrain["vessel_3D_IncludingBg"]:#如果在预处理阶段已经将背景图片和血管图片进行了融合
+            synthetic_Image=img
+            org_img_size=img.size
+            synthetic_Image_Perturbation=img
+            # print("test success!")
+            # exit(0)
+            return synthetic_Image, anno_mask, org_img_size, synthetic_Image_Perturbation
+
+
+
         background_img = self.read_background_3D(background_name)  # 背景图(真实造影图) # <PIL.Image.Image>
         # print('background_img',background_img.size)
         # exit(0)

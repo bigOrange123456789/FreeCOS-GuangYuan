@@ -44,7 +44,9 @@
 
     "ASL": {
         "gamma_neg":0, 
-        "gamma_pos":0
+        "gamma_pos":0,
+        "mask_pos":1,
+        "mask_neg":0.1
     },
 
     "marginInfoNCE": false,
@@ -60,7 +62,9 @@
         "img_unsup":"img",
         
         "bg_3D":"bg_lzc",
-        "vessel_3D":"vessel3D_lzc",
+        "vessel_3D":"vessel3D_GuangYuan",
+        "vessel_3D-old":"vessel3D_lzc",
+        "vessel_3D_IncludingBg": true,
         "label_3D":"fake_gtvessel_width",
 
         "bg":"img",

@@ -12,7 +12,7 @@
         "damping-note":["constant","恒定"]
     },
     "cons":{
-        "weight": 5.0,
+        "weight": 0.0,
         "weight-note": [0.5,5.0],
         "damping":"constant",
 
@@ -63,9 +63,11 @@
     "datapathTrain":{
         "img_unsup":"img",
         
-        "bg_3D":"bg_DEC_ND",
-        "bg_3D-old":"bg2",
-        "vessel_3D":"fake_grayvessel_bend",
+        "bg_3D":"bg2",
+        "bg_3D-old":["bg2","bg_DEC_ND"],
+        "vessel_3D":"vessel3D_GuangYuan",
+        "vessel_3D-old":["vessel3D_GuangYuan","fake_grayvessel_bend"],
+        "vessel_3D_IncludingBg": true,
         "label_3D":"fake_gtvessel_bend",
 
         "bg":"img",
@@ -85,7 +87,7 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "logname":"./FreeCOS63",
-    "notes":"63: 使用同时破败振幅和相位的背景图的消融实验",
+    "logname":"./FreeCOS64",
+    "notes":"64: 使用广源的血管背景对抗融合方法",
     "version": "2025.03.27--11:43"
 }
