@@ -31,15 +31,17 @@ class CSDataset:
                                               split=split,          # train
                                               img_mode=img_mode,    # crop (译为裁减)
                                               img_size=img_size,    # 256
-                                              supervised=supervised) # unsupervised/supervised
+                                              supervised=supervised,# unsupervised/supervised
+                                              )
         else:  # split=val   # 验证集
             dataset = cls.datasets[benchmark](benchmark,            # XCAD_LIOT
                                               datapath=cls.datapath,# ./Data/XCAD
                                               split=split,          # val
                                               img_mode='same',
                                               img_size=None,
-                                              supervised=supervised) # supervised
-
+                                              supervised=supervised,# supervised
+                                              )
         dataloader = DataLoader(dataset, batch_size=bsz, shuffle=shuffle, num_workers=nworker)
+        dataloader.dataset0=dataset
 
         return dataloader,dataset

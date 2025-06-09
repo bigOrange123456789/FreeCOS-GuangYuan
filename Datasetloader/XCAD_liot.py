@@ -69,7 +69,9 @@ class DatasetXCAD_aug(data.Dataset):
 
     def __init__(self, benchmark, datapath, split, img_mode, img_size, supervised):
         super(DatasetXCAD_aug, self).__init__()
-        self.isFirstEpoch = True  # 还没有保存了伪标签数据
+        self.isFirstEpoch = True
+        self.pseudo_label = config.pseudo_label["open"]
+        self.needAug = True # 是否需要进行数据增强 #{自训练的时候，处理训练集的过程中不需要进行数据增强}
         self.split = 'val' if split in ['val', 'test'] else 'train'
         self.benchmark = benchmark  # benchmark = XCAD_LIOT
         assert self.benchmark == 'XCAD_LIOT'
@@ -145,7 +147,7 @@ class DatasetXCAD_aug(data.Dataset):
     def __getitem__(self, index):
         img_name = self.img_metadata[
             index]  # get the name of fakevessel(train-supervised), img(test-supervised), img(train-unsupervised)
-        supervised_pseudo = config.pseudo_label and self.isFirstEpoch == False
+        supervised_pseudo = self.pseudo_label and self.isFirstEpoch == False
         img_Perturbation = None
         if self.supervised == 'supervised' and self.split == 'train':  # 有监督的训练
             idx_background = np.random.randint(len(self.background_metadata))  # background(train-supervised)
@@ -180,35 +182,36 @@ class DatasetXCAD_aug(data.Dataset):
                 # print("1 unsupervised",type(img),type(anno_mask),anno_mask.shape)
                 # print("1 unsupervised",anno_mask.shape)
 
-        if self.split == 'train' and self.supervised == 'supervised':  # 有监督 or 伪监督
-            img, anno_mask, img_Perturbation = self.augmentation_aff(img, anno_mask, img_Perturbation)  # 翻转、旋转、调色
-        elif self.split == 'train' and self.supervised != 'supervised':  # 无监督的训练
-            if not supervised_pseudo:  # 伪标签数据不进行增强（因为对伪标签数据进行增强会导致BUG）
-                img, anno_mask = self.augmentation_unsupervised(img, anno_mask)  # 翻转、旋转、调色
-        # if anno_mask!=None:
-        #     img, anno_mask = self.augmentation_aff(img, anno_mask) #翻转、旋转、调色
-        #     # print("1.5 ",img.shape,anno_mask.shape)
-        # else:
-        #     img, anno_mask = self.augmentation_unsupervised(img,anno_mask) #翻转、旋转、调色
+        if self.needAug:
+            if self.split == 'train' and self.supervised == 'supervised':  # 有监督 or 伪监督
+                img, anno_mask, img_Perturbation = self.augmentation_aff(img, anno_mask, img_Perturbation)  # 翻转、旋转、调色
+            elif self.split == 'train' and self.supervised != 'supervised':  # 无监督的训练
+                if not supervised_pseudo:  # 伪标签数据不进行增强（因为对伪标签数据进行增强会导致BUG）
+                    img, anno_mask = self.augmentation_unsupervised(img, anno_mask)  # 翻转、旋转、调色
+            # if anno_mask!=None:
+            #     img, anno_mask = self.augmentation_aff(img, anno_mask) #翻转、旋转、调色
+            #     # print("1.5 ",img.shape,anno_mask.shape)
+            # else:
+            #     img, anno_mask = self.augmentation_unsupervised(img,anno_mask) #翻转、旋转、调色
 
-        # self.img_mode: crop
-        if self.img_mode == 'resize' and self.split == 'train':
-            img = self.resize(img)
-            if img_Perturbation != None:
-                img_Perturbation = self.resize(img_Perturbation)
-            if anno_mask != None:
-                anno_mask = self.resize(anno_mask)
-        elif self.img_mode == 'crop' and self.split == 'train':  # 只用训练的时候需要裁减、因为训练前的旋转操作会放大图片
-            i, j, h, w = self.get_params(img, (self.img_size, self.img_size))
-            # print("i, j, h, w",i, j, h, w)
-            img = F.crop(img, i, j, h, w)
-            if img_Perturbation != None:
-                img_Perturbation = F.crop(img_Perturbation, i, j, h, w)
-            if anno_mask != None:
-                anno_mask = F.crop(anno_mask, i, j, h, w)
-                # print(anno_mask.shape, i, j, h, w)
-        else:
-            pass
+            # self.img_mode: crop
+            if self.img_mode == 'resize' and self.split == 'train':
+                img = self.resize(img)
+                if img_Perturbation != None:
+                    img_Perturbation = self.resize(img_Perturbation)
+                if anno_mask != None:
+                    anno_mask = self.resize(anno_mask)
+            elif self.img_mode == 'crop' and self.split == 'train':  # 只用训练的时候需要裁减、因为训练前的旋转操作会放大图片
+                i, j, h, w = self.get_params(img, (self.img_size, self.img_size))
+                # print("i, j, h, w",i, j, h, w)
+                img = F.crop(img, i, j, h, w)
+                if img_Perturbation != None:
+                    img_Perturbation = F.crop(img_Perturbation, i, j, h, w)
+                if anno_mask != None:
+                    anno_mask = F.crop(anno_mask, i, j, h, w)
+                    # print(anno_mask.shape, i, j, h, w)
+            else:
+                pass
 
 
         img_gray = self.norm_img(np.array(img))  # 由前文知norm_img作用为: 将数据由HWC255 转换为CHW0～1
@@ -266,7 +269,7 @@ class DatasetXCAD_aug(data.Dataset):
                 'img_name': img_name,  # 图片名称
                 'img': img  # 图片数据
             }
-            if config.pseudo_label and self.isFirstEpoch == False:
+            if self.pseudo_label and self.isFirstEpoch == False:
                 batch = {
                     'img_name': img_name,  # 图片名称
                     'anno_mask': anno_mask,  # 伪标签数据

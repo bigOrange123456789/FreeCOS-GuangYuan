@@ -2,17 +2,16 @@
     "seed": 12345,
     "batch_size": 20,
     "batch_size_val": 20,
-    
-    "seg":{
+   "seg":{
         "weight_dice": 1.0,
         "weight_dice-note": 1.0,
         "weight_ce"  : 3.0,
         "weight_ce-note"  : [0.1,3.0],
-        "damping":"constant",
+        "damping":"reduce",
         "damping-note":["constant","恒定"]
     },
     "cons":{
-        "weight": 0.0,
+        "weight": 5.0,
         "weight-note": [0.5,5.0],
         "damping":"constant",
 
@@ -31,6 +30,24 @@
         "damping":"constant",
         "damping-note":["constant","默认恒定"]
     },
+    "pseudo_label":{
+        "weight_dice": 1.0,
+        "weight_ce"  : 3.0,
+        "damping":"increase",
+        "onlyMainObj": false
+    },
+    "pseudo_label-old": true,
+    "onlyMainObj": false,
+    "conn":{
+        "weight": 0,
+        "weight-note2": 0.04,
+        "weight-note": 0.1,
+        "damping":"constant",
+
+        "type": "entropy",
+        "type-note": ["ratio","entropy"]
+    },
+
     "conn":{
         "weight": 0,
         "weight-note2": 0.04,
@@ -46,7 +63,7 @@
 
     "ASL": {
         "gamma_pos":0,
-        "gamma_neg":0, 
+        "gamma_neg":0,
         "mask_pos":1,
         "mask_neg":0.1,
         "old":[0,0,1,0.1]
@@ -54,31 +71,23 @@
 
     "marginInfoNCE": false,
 
-    "pseudo_label": false,
-    "onlyMainObj": true,
-
     "inputType": "Origin",
 
     "datapath": "../DataSet-images/XCAD_FreeCOS5",
     "datapathTrain":{
         "img_unsup":"img",
-        
+
         "bg_3D":"bg2",
-        "bg_3D-old":["bg2","bg_DEC_ND"],
-        "vessel_3D":"vessel3D_GuangYuan",
-        "vessel_3D-old":["vessel3D_GuangYuan","fake_grayvessel_bend"],
-        "vessel_3D_IncludingBg": true,
+        "vessel_3D":"fake_grayvessel_bend","vessel_3D_IncludingBg": false,"log":"在预处理阶段是否已经将背景图片和血管图片进行了融合--用于广源的测试",
         "label_3D":"fake_gtvessel_bend",
 
         "bg":"img",
         "vessel":"fake_grayvessel_width",
-        "label":"fake_gtvessel_width",
-        "vessel-old":"fake_grayvessel_width",
-        "label-old":"fake_gtvessel_width"
+        "label":"fake_gtvessel_width"
     },
     "datapathTrain-note":{
         "img_unsup":"img",
-        
+
         "bg_3D":"bg_lzc",
         "vessel_3D":"vessel3D_lzc",
         "label_3D":"fake_gtvessel_width",
@@ -87,7 +96,7 @@
         "vessel":"fake_grayvessel_width",
         "label":"fake_gtvessel_width"
     },
-    "logname":"./FreeCOS64",
-    "notes":"64: 使用广源的血管背景对抗融合方法",
-    "version": "2025.03.27--11:43"
+    "logname":"./FreeCOS46",
+    "notes":"参数复制自--46: 测试余弦一致性正则化",
+    "version": "2025.02.28--01:46"
 }

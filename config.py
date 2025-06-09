@@ -89,7 +89,8 @@ C.ASL = C_["ASL"]#True #C_["ASL"] #不平衡损失/加权BCE
 C.marginInfoNCE = C_['marginInfoNCE']
 #4.是否使用伪标签机制
 C.pseudo_label = C_["pseudo_label"]
-C.onlyMainObj  = C_["onlyMainObj"]
+C.pseudo_label["open"]=(C.pseudo_label["weight_dice"]+C.pseudo_label["weight_ce"])>0
+C.onlyMainObj  = C.pseudo_label["onlyMainObj"]
 #5.是否使用连通性损失
 C.connectivityLoss = C_["conn"]["weight"]>0 # C_["connectivityLoss"]
 C.connectivityLossType = C_["conn"]["type"] # C_["connectivityLossType"]

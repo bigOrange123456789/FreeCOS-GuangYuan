@@ -129,7 +129,7 @@ def main():
         optimizer_D = torch.optim.Adam(predict_Discriminator_model.parameters(),#判别器中的全部参数
                                    lr=base_lr_D, betas=(0.9, 0.99))
     else:
-        predict_Discriminator_model = None    
+        predict_Discriminator_model = None
         optimizer_D = None
 
     # config lr policy
@@ -163,17 +163,17 @@ def main():
         if predict_Discriminator_model!=None:
             predict_Discriminator_model = predict_Discriminator_model
 
-    if False:#如果进行推理测试
-        predictor.nextInference()  # 测试训练集
-        # predictor.lastInference()  # 推理测试集
-        exit(0)
+    # predictor.showInput()
+
+    predictor.loadConfig()
+    predictor.nextInference()  # 测试训练集
+    # predictor.lastInference()  # 推理测试集
+    exit(0)
     best_val_f1 = 0
     Logger.initialize(config, training=True)
     trainer = Trainer(Segment_model,Segment_model_EMA, predict_Discriminator_model, dataloader_supervised, dataloader_unsupervised,
                 optimizer_l, optimizer_D, lr_policy, lrD_policy, criterion, total_iteration)
     # inference(Segment_model, dataloader_val)
-    # predictor.showInput()
-    # exit(0)
     for epoch in range(config.state_epoch, config.nepochs): # 从state_epoch到nepochs-1 # 按照预先设定的回合数量执行，不会提前中止
         '''train_total_loss=0'''
 

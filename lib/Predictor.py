@@ -48,9 +48,9 @@ class Predictor():
         self.val_score_path = folder_path + '/' + 'val_train_f1.csv'
         csv_head = ["epoch", "total_loss", "f1", "AUC", "AUC2", "pr", "recall", "Acc", "Sp", "JC","Dice","Dice2"]
         create_csv(self.val_score_path, csv_head)
-
-        if False:  # 加载保存的状态字典
-            self.__loadParm('logs/best_Segment.pt')
+    def loadConfig(self):
+        # self.__loadParm('logs/best_Segment.pt')
+        self.__loadParm(os.path.join('logs', config.logname + ".log", "best_Segment.pt"))
 
     def __loadParm(self,checkpoint_path):
         # checkpoint_path = 'logs/best_Segment.pt'  # os.path.join(cls.logpath, 'best_Segment.pt')
@@ -141,9 +141,11 @@ class Predictor():
         self.__loadParm(pathParam)
         path = os.path.join('logs', config.logname + ".log", "inference")
         self.__inference(self.dataloader_val, path)
-    def nextInference(self) :
+    def nextInference(self) :#每次迭代前是否要回退到最优时候的参数
         path = os.path.join('logs', config.logname + ".log", "unsup_temp")
-        self.__inference(self.dataloader_unsup, path)
+        self.dataloader_unsup.dataset.needAug = False # 关闭数据增强功能
+        self.__inference(self.dataloader_unsup, path) #无监督的训练
+        self.dataloader_unsup.dataset.needAug = True # 打开数据增强功能
 
     def showInput(self):
         path = os.path.join('logs', config.logname + ".log", "liot")

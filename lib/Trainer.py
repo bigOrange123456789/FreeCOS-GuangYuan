@@ -444,8 +444,8 @@ class Trainer():
         else:
             loss_contrast = getZero()
 
-        # 5.伪监督损失
-        if config.pseudo_label and isFirstEpoch == False:
+        # 5.伪标签损失
+        if config.pseudo_label["open"] and isFirstEpoch == False:
             gts_pseudo = unsup_minibatch['anno_mask']  # 原始数据
             gts_pseudo = gts_pseudo.cuda(non_blocking=True)
 
@@ -456,11 +456,14 @@ class Trainer():
             with torch.no_grad():  # 禁用梯度计算
                 criterion_bce2 = BCELoss_lzc(
                     weight=weight_mask2,
-                    gamma_pos=config.gamma_pos,
-                    gamma_neg=config.gamma_neg)
-            loss_pseudo = criterion_bce2(pred_target, gts_pseudo)
+                    gamma_pos=config.ASL["gamma_pos"],  # config.gamma_pos,
+                    gamma_neg=config.ASL["gamma_neg"])  # config.gamma_neg
+            loss_pseudo_ce = criterion_bce2(pred_target, gts_pseudo)
+            loss_pseudo_dice = criterion(pred_target, gts_pseudo)  # 根据预测结果和标签计算Dice损失
+
         else:
-            loss_pseudo = getZero()
+            loss_pseudo_ce = getZero()
+            loss_pseudo_dice = getZero()
 
         # 6.连通性损失
         if config.connectivityLoss and config.conn["weight"]!=0:  # 使用连通损失 #我认为合成监督不怎么需要评估破碎损失、无监督最需要评估破碎损失
@@ -471,7 +474,7 @@ class Trainer():
             else:
                 loss_conn = getZero() + ConnectivityAnalyzer(pred_target_Interrupt).connectivityLoss(config.connectivityLossType)
                 # loss_conn = getZero()+ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 无/伪监督
-            # if config.pseudo_label and isFirstEpoch == False:
+            # if config.pseudo_label["open"] and isFirstEpoch == False:
             #     loss_conn3 = ConnectivityAnalyzer(pred_target).connectivityLoss(config.connectivityLossType)  # 伪监督
             #     loss_conn = loss_conn + loss_conn3
         else:
@@ -507,7 +510,8 @@ class Trainer():
         # loss_adv_w = loss_adv_target * damping * 0.25 
         # damping的取值范围是: 1到0
         loss_contrast_w = useW(loss_contrast, config.contrast) #loss_contrast_w = loss_contrast * 0.04  # (当前batch的)加权后的对比损失 # weight_contrast = 0.04  # 对比损失的权重
-        loss_pseudo_w = loss_pseudo * ( 1 - damping ) * 0.01
+        loss_pseudo_w = useW_seg(loss_pseudo_dice,loss_pseudo_ce,config.pseudo_label)
+        # loss_pseudo_w = loss_pseudo * ( 1 - damping ) * 0.01
         loss_conn_w = useW(loss_conn, config.conn) #loss_conn_w = loss_conn * 0.1
 
         loss_adv = loss_seg_w + loss_cons_w + loss_adv_w + loss_contrast_w + loss_pseudo_w #+ loss_conn_w
@@ -551,8 +555,7 @@ class Trainer():
             "loss_D_tar":loss_D_tar,
             "loss_D_src":loss_D_src,
             # "loss_adv":loss_adv,
-            "loss_ce":loss_ce,
-            "loss_dice":loss_dice,
+
 
             # 【1.合成监督、2.一致性、3.对抗、4.对比、5.伪监督、6.连通损失】
             "loss_seg_w":loss_seg_w,
@@ -562,10 +565,12 @@ class Trainer():
             "loss_pseudo_w":loss_pseudo_w,
             "loss_conn_w":loss_conn_w,
 
+            "loss_ce":loss_ce,
+            "loss_dice":loss_dice,
             "loss_adv":loss_adv,
             "loss_cons":loss_cons,
             "loss_contrast":loss_contrast,
-            "loss_pseudo":loss_pseudo,
+            "loss_pseudo":loss_pseudo_ce,
             "loss_conn":loss_conn
         }
 
