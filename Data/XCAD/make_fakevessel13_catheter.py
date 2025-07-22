@@ -88,7 +88,7 @@ config_DNVR={
 
 }
 config = config_DNVR
-TestFlag = False # True # False #是否快速生成低质量图片
+TestFlag = True # True # False #是否快速生成低质量图片
 #######################   开始创建一个numpy对象的图片   #########################
 class Img():
     def __init__(self, width=(1024+256), height = (1024+128)):
@@ -435,12 +435,18 @@ class LSystem_vessel():
                     pass
                 newStr += mapped # 更新这个规则
             self.sentence = newStr
-        print('self.sentence:',self.sentence)
+        # if not self.sentence[0]=='F': self.sentence='F'+self.sentence
+        # if np.random.randint(low=0, high=100)>50:
+        #     self.sentence='F+'+self.sentence
+        # else:
+        #     self.sentence='F-'+self.sentence
+        # if not self.sentence[1]=='F': self.sentence='F'+self.sentence#为了实现导管的效果这里开头要确保两个无分支的线段
         return self.sentence
 
     def draw(self):#根据规则语句来绘制图像
         flag = False
         firstLine = True #第一次绘制线段
+        # firstTurn = True
         for char in self.sentence: #规则语句由5种符号组成，分别是'F、+、-、[、]'。
             if char == 'F' or char == 'G': #根据行进轨迹 绘制线段
                 if flag == True:
@@ -458,12 +464,18 @@ class LSystem_vessel():
             elif char == '+': #调整行进方向
                 # dtheta = np.random.randint(low=1, high=5) #
                 dtheta = np.random.randint(low=10, high=40) #【根据论文】
+                # if firstTurn:
+                #      dtheta = dtheta + 90
+                #      if not firstLine: firstTurn = False
                 self.theta += dtheta
                 self.width = self.width * self.lamda_1#分叉后宽度改变
             elif char == '-': #反方向调整行进方向
                 self.width = self.width * self.lamda_2
                 # dtheta = np.random.randint(low=1, high=5)  #
                 dtheta = np.random.randint(low=10, high=40) #【根据论文】
+                # if firstTurn:
+                #      dtheta = dtheta + 90
+                #      if not firstLine: firstTurn = False
                 self.theta -= dtheta
             elif char == '[': #记录迭代位置 #使用数据栈结构
                 self.positions.append({'x': self.x, 'y': self.y, 'theta': self.theta, 'width': self.width, 'length': self.length})
