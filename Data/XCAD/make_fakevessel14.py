@@ -4,7 +4,7 @@ import random
 from PIL import Image
 from scipy.ndimage import label, generate_binary_structure
 
-from BendFun import BendFun
+from BendFun import BendFun,BendFunCathe
 config_XCAD={
     "inferenceSize":{
         "w":1024,
@@ -88,7 +88,8 @@ config_DNVR={
 
 }
 config = config_DNVR
-TestFlag = True # True # False #是否快速生成低质量图片
+TestFlag = False # True # False #是否快速生成低质量图片
+print("TestFlag",TestFlag)
 #######################   开始创建一个numpy对象的图片   #########################
 class Img():
     def __init__(self, width=(1024+256), height = (1024+128)):
@@ -226,7 +227,7 @@ class Img():
                 pic2 = Image.fromarray(self.imageOld, mode='L')  # 'L' 表示灰度图像 
                 pic2.save(output_path+".old.png") 
             
-            pic2 = Image.fromarray((255*light*0.5).astype('uint8'), mode='L')  # 'L' 表示灰度图像 
+            pic2 = Image.fromarray((255*light).astype('uint8'), mode='L')  # 'L' 表示灰度图像 
             pic2.save(output_path2) 
             print(f"图像已保存到 {output_path2}") 
             return True 
@@ -244,9 +245,9 @@ class Img():
             return False 
 
     def draw(self,new_length0,width,x,y,theta,firstLine):
-        if firstLine:
-            width=8 #真实导管的直径约8个像素
-            new_length0=185
+        # if firstLine:
+        #     width=8 #真实导管的直径约8个像素
+        #     new_length0=185
         if width<8:#比较细的血管长度也较小
             new_length0=new_length0*0.5
         self.length=self.length+new_length0
@@ -297,6 +298,7 @@ class Img():
         # bendWeght=MaxBendWeight*0.5*new_length
         # startLen=0.01#random.random()*0.01
         bendf=BendFun() #用于实现线段弯曲
+        if firstLine:bendf=BendFunCathe()
         # 生成坐标网格
         i, j = np.indices((h, w))
 
@@ -445,8 +447,27 @@ class LSystem_vessel():
 
     def draw(self):#根据规则语句来绘制图像
         flag = False
-        firstLine = True #第一次绘制线段
+        firstLine = False #第一次绘制线段
         # firstTurn = True
+        ######################### 开始绘制导管 #########################
+        if flag == True:
+            new_length = self.length*self.lamda_1#分段后长度改变
+        else:
+            new_length = self.length*self.lamda_2
+        x0=self.x
+        y0=self.y
+        widthC=8 #真实导管的直径约8个像素
+        #右0上-90、上-90左180
+        t1 =np.random.randint(low=-150, high=15) #【-150，-60，0，20】可以
+        t2=t1-90+np.random.randint(low=-1, high=1)
+        self.img.draw(26+np.random.randint(low=-6, high=6), 
+                      widthC, self.x, self.y, t1,True)
+        self.x=self.img.end_x
+        self.y=self.img.end_y
+        self.img.draw(185, widthC, self.x, self.y, t2,True)
+        self.x=x0
+        self.y=y0
+        ######################### 完成绘制导管 #########################
         for char in self.sentence: #规则语句由5种符号组成，分别是'F、+、-、[、]'。
             if char == 'F' or char == 'G': #根据行进轨迹 绘制线段
                 if flag == True:
@@ -454,10 +475,10 @@ class LSystem_vessel():
                 else:
                     new_length = self.length*self.lamda_2
   
-                self.img.draw(new_length, self.width, self.x, self.y, self.theta,firstLine)
-                if firstLine:
-                    print("这是这个图案绘制的第一条线段!")
-                    firstLine=False
+                self.img.draw(new_length, self.width, self.x, self.y, self.theta,False)
+                # if firstLine:
+                #     print("这是这个图案绘制的第一条线段!")
+                #     firstLine=False
                 
                 self.x=self.img.end_x
                 self.y=self.img.end_y
@@ -542,13 +563,16 @@ Start_position_x2 = (-256, -256)
 Start_position_y = (0, 0) # 初始位置的纵坐标坐标为-100
 
 #(lzc13)确保初始点在左上角
-# Start_position_x = (-400, -400) # 初始位置的横坐标的范围
-# Start_position_x2 = (-400, -400)
-# Start_position_y = (-400, -400) # 初始位置的纵坐标坐标为-100
-Start_position_x = (-266, -266) # 初始位置的横坐标的范围
-Start_position_x2 = (-266, -266)
-Start_position_y = (-266, -266) # 初始位置的纵坐标坐标为-100
-
+# Start_position_x = (-266, -266) # 初始位置的横坐标的范围
+# Start_position_x2 = (-266, -266)
+# Start_position_y = (-266, -266) # 初始位置的纵坐标坐标为-100
+Start_position_x = (-186, -186) # 初始位置的横坐标的范围
+Start_position_x2 = (-186, -186)
+Start_position_y = (-186, -186) # 初始位置的纵坐标坐标为-100
+Start_position_x = (-190, -180) # 初始位置的横坐标的范围
+Start_position_x2 = (-190, -180)
+Start_position_y = (-190, -180) # 初始位置的纵坐标坐标为-100
+# +np.random.randint(low=-6, high=6)
 
 Ratio_LW = (0.7,1) #宽度的分支衰减率
 Ratio_LW = (0.7,0.8) #宽度的分支衰减率【LZC:我的优化】
