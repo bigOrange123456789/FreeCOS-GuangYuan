@@ -459,12 +459,12 @@ class LSystem_vessel():
         widthC=8 #真实导管的直径约8个像素
         #右0上-90、上-90左180
         t1 =np.random.randint(low=-150, high=15) #【-150，-60，0，20】可以
-        t2=t1-90+np.random.randint(low=-1, high=1)
-        self.img.draw(26+np.random.randint(low=-6, high=6), 
+        t2=t1-90+np.random.randint(low=-10, high=10)
+        self.img.draw(26+np.random.randint(low=-16, high=16), 
                       widthC, self.x, self.y, t1,True)
         self.x=self.img.end_x
         self.y=self.img.end_y
-        self.img.draw(185, widthC, self.x, self.y, t2,True)
+        self.img.draw(185+10, widthC, self.x, self.y, t2,True)
         self.x=x0
         self.y=y0
         ######################### 完成绘制导管 #########################
@@ -509,8 +509,10 @@ class LSystem_vessel():
             #     self.width = 2 #self.width = 1.5
             # if self.width<4:
             #     self.width = 3.5 #self.width = 1.5
-            if self.width<3.5:
-                self.width = 3 #self.width = 1.5
+            # if self.width<3.5:
+            #     self.width = 3 #self.width = 1.5
+            if self.width<4:
+                self.width = 4 #self.width = 1.5
 
 # 所谓的规则语句，就是将字符F替换为由F组成的字符串
 rules = {"F":"F-F[+F-F][-F+F]"} # 这应该是类似json格式的对象
@@ -638,8 +640,8 @@ while i<Num_image:
         continue
     system.draw()
     saved=system.img.save(
-        "./label_3D/"+str(i)+'.png',
-        "./vessel_3D/"+str(i)+'.png'
+        "./label_3D_2/"+str(i)+'.png',
+        "./vessel_3D_2/"+str(i)+'.png'
         )
     # saved=system.img.save(
     #     "./fake_very_smalltheta/"+str(i)+'_label.png',
