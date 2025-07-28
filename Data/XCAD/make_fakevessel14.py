@@ -298,7 +298,10 @@ class Img():
         # bendWeght=MaxBendWeight*0.5*new_length
         # startLen=0.01#random.random()*0.01
         bendf=BendFun() #用于实现线段弯曲
-        if firstLine:bendf=BendFunCathe()
+        if firstLine:
+            bendf=BendFunCathe()
+            # bendWeght=bendWeght*5
+
         # 生成坐标网格
         i, j = np.indices((h, w))
 
@@ -456,15 +459,20 @@ class LSystem_vessel():
             new_length = self.length*self.lamda_2
         x0=self.x
         y0=self.y
-        widthC=8 #真实导管的直径约8个像素
+        widthC=8+np.random.randint(low=-2, high=2) #真实导管的直径约8个像素
         #右0上-90、上-90左180
-        t1 =np.random.randint(low=-150, high=15) #【-150，-60，0，20】可以
-        t2=t1-90+np.random.randint(low=-10, high=10)
-        self.img.draw(26+np.random.randint(low=-16, high=16), 
-                      widthC, self.x, self.y, t1,True)
-        self.x=self.img.end_x
-        self.y=self.img.end_y
-        self.img.draw(185+10, widthC, self.x, self.y, t2,True)
+        t1 =np.random.randint(low=-150, high=-35) #【-150，-60，0，20】可以
+        if np.random.randint(low=-90, high=10)>0:#np.random.randint(low=-100, high=100)>0: #双段管线   
+            t2=t1-90+np.random.randint(low=-10, high=10)
+            self.img.draw(26+np.random.randint(low=-16, high=16), 
+                        widthC, self.x, self.y, t1,True)
+            self.x=self.img.end_x
+            self.y=self.img.end_y
+            self.img.draw(50+285+10, widthC, self.x, self.y, t2,True)
+        else: #单段管线
+            t2=t1-90+np.random.randint(low=-10, high=10)
+            self.img.draw(50+400, 
+                        widthC, self.x, self.y, t1,True)
         self.x=x0
         self.y=y0
         ######################### 完成绘制导管 #########################
@@ -574,6 +582,10 @@ Start_position_y = (-186, -186) # 初始位置的纵坐标坐标为-100
 Start_position_x = (-190, -180) # 初始位置的横坐标的范围
 Start_position_x2 = (-190, -180)
 Start_position_y = (-190, -180) # 初始位置的纵坐标坐标为-100
+#现在要增加导管的长度
+Start_position_x = (-190, -85) # 初始位置的横坐标的范围
+Start_position_x2 = (-190, -85)
+Start_position_y = (-190, -85) # 初始位置的纵坐标坐标为-100
 # +np.random.randint(low=-6, high=6)
 
 Ratio_LW = (0.7,1) #宽度的分支衰减率
@@ -640,8 +652,8 @@ while i<Num_image:
         continue
     system.draw()
     saved=system.img.save(
-        "./label_3D_2/"+str(i)+'.png',
-        "./vessel_3D_2/"+str(i)+'.png'
+        "./label_3D_4/"+str(i)+'.png',
+        "./vessel_3D_4/"+str(i)+'.png'
         )
     # saved=system.img.save(
     #     "./fake_very_smalltheta/"+str(i)+'_label.png',

@@ -52,6 +52,7 @@ class BendFunCathe():
         
         # self.c["x3"]=10*(random.random()-0.5)
         num=random.randint(0, 2)
+        # num = 1
         self.c["x_list"]=[]
         for i in range(num):
             self.c["x_list"].append(
@@ -62,8 +63,9 @@ class BendFunCathe():
             # f = k0*(k0-1)*(k0-c["x3"])
             y = 2 * x*(x-1)
             for x0 in c["x_list"]:
-                y = 2 * y*(x-x0)
+                y = 1.5* y*(x-x0)
             y = y ** c["exponent"]
+            y = y*4
             return y    
         
         self.bendList=[bend0]
